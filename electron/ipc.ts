@@ -1,19 +1,9 @@
-import { ipcMain, shell } from 'electron'
+import { ipcMain, shell, type WebContents } from 'electron'
+import { IPC_CHANNELS } from './channels'
+import { assertTrustedSender, isAllowedExternalUrl } from './security'
 
 /** IPC channel names shared by renderer and preload (single source of truth). */
-export const IPC_CHANNELS = {
-	/** `invoke(url: string)` allows only `http:` / `https:`, then calls `shell.openExternal`. */
-	OPEN_EXTERNAL: 'app:open-external',
-} as const
-
-export function isAllowedExternalUrl(url: string): boolean {
-	try {
-		const u = new URL(url)
-		return u.protocol === 'http:' || u.protocol === 'https:'
-	} catch {
-		return false
-	}
-}
+export { IPC_CHANNELS, isAllowedExternalUrl }
 
 export async function openExternalUrl(raw: string): Promise<void> {
 	if (!isAllowedExternalUrl(raw)) {
@@ -23,8 +13,9 @@ export async function openExternalUrl(raw: string): Promise<void> {
 }
 
 /** Registers IPC handlers in the main process (call once at startup). */
-export function registerIpcHandlers(): void {
-	ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL, async (_event, raw: unknown) => {
+export function registerIpcHandlers(getContents: () => WebContents | undefined, expectedUrl: string): void {
+	ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL, async (event, raw: unknown) => {
+		assertTrustedSender(event, getContents(), expectedUrl)
 		if (typeof raw !== 'string' || raw.length === 0) {
 			throw new Error('open-external: URL must be a non-empty string')
 		}

@@ -1,0 +1,122 @@
+.movie-cover.has-poster {
+	background: var(--bg, #10121b);
+}
+.movie-cover.has-poster::after {
+	display: none;
+}
+.movie-cover.has-poster img {
+	display: block;
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.poster-settings p {
+	line-height: 1.7;
+}
+.poster-setup-intro {
+	margin-bottom: 22px;
+}
+.poster-setup-intro button.text-link {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+}
+.poster-setup-intro p {
+	color: var(--secondary-text);
+	margin-bottom: 10px;
+}
+.poster-settings form > label {
+	display: block;
+	margin-bottom: 10px;
+	font-size: 15px;
+}
+.poster-key-row,
+.poster-sync-actions,
+.poster-picker-actions {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+.poster-key-row input {
+	flex: 1 1 260px;
+	min-width: 0;
+}
+.poster-sync-actions {
+	margin-top: 24px;
+}
+.poster-refresh {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-right: auto;
+	font-size: 14px;
+}
+.poster-refresh input {
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	accent-color: var(--accent);
+}
+.poster-progress {
+	padding: 18px;
+	margin-top: 18px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+}
+.poster-progress progress {
+	width: 100%;
+	height: 8px;
+	accent-color: var(--accent);
+}
+.poster-progress p {
+	overflow-wrap: anywhere;
+}
+.poster-progress details {
+	margin-top: 12px;
+}
+.poster-progress summary {
+	cursor: pointer;
+	font-size: 14px;
+}
+.poster-progress ul {
+	padding-left: 20px;
+	max-height: 240px;
+	overflow: auto;
+}
+.poster-progress li {
+	font-size: 14px;
+	margin-top: 12px;
+}
+.poster-progress li span {
+	display: block;
+	color: var(--secondary-text);
+	margin-top: 4px;
+}
+.poster-message {
+	color: var(--text);
+}
+.poster-picker {
+	margin-top: 22px;
+}
+.poster-picker .footnote {
+	margin-top: 10px;
+}
+.tmdb-credit {
+	border-top: 1px solid var(--border);
+	padding-top: 22px;
+	margin-top: 24px;
+}
+.tmdb-credit img {
+	display: block;
+	width: 100px;
+	height: auto;
+}
+.tmdb-credit p {
+	font-size: 13px;
+	line-height: 1.7;
+	color: var(--secondary-text);
+}

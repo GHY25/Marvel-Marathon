@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches:
+      - main
       - master
   pull_request:
 
@@ -12,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        node-version: [22, 24]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -34,3 +35,18 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Test domain, storage and security
+        run: npm test
+
+  windows-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:e2e
+      - run: npm run package:dir

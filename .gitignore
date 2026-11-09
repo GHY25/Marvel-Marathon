@@ -8,6 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+test-results
+playwright-report
+.test-data
 dist
 dist-electron
 release
@@ -32,6 +35,22 @@ build
 !.github/workflows/
 !.github/workflows/*.yml
 .env
+.env.*
+!.env.example
+
+# Personal library and backups stay on this device.
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.db-wal
+*.db-shm
+recovery-backups/
+marvel-marathon-backup-*.json
+before-restore-*.json
 
 .flows
 flows

@@ -1,0 +1,133 @@
+.topbar-actions {
+	gap: 18px;
+}
+.cosmic-next {
+	display: flex;
+	align-items: center;
+	gap: 19px;
+	padding: 17px 22px;
+	margin: 18px 0;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--surface);
+	transition:
+		border-color 180ms,
+		background 180ms;
+}
+.cosmic-next:hover {
+	border-color: var(--accent);
+}
+.cosmic-next > .movie-cover {
+	width: 52px;
+	height: 70px;
+	flex: 0 0 52px;
+	border-radius: 6px;
+}
+.cosmic-next-title {
+	min-width: 0;
+}
+.cosmic-next-title .eyebrow {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	color: var(--accent);
+	font-size: 11px;
+	letter-spacing: 1.5px;
+}
+.cosmic-next-title h2 {
+	font-size: 17px;
+	margin: 7px 0 5px;
+	overflow-wrap: anywhere;
+}
+.cosmic-next-title p {
+	font-size: 13px;
+	color: var(--muted);
+	line-height: 1.7;
+}
+.cosmic-next-action {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	white-space: nowrap;
+	font-size: 14px;
+	color: var(--accent);
+}
+.cosmic-finished > svg {
+	color: var(--gold);
+}
+.cosmic-finished .button {
+	margin-left: auto;
+}
+.cosmic-detail-note {
+	display: flex;
+	align-items: center;
+	gap: 15px;
+	padding: 18px 21px;
+	margin: 0 0 24px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	color: var(--muted);
+}
+.cosmic-detail-note:hover {
+	border-color: var(--accent);
+}
+.cosmic-detail-note.is-lit > svg {
+	color: var(--gold);
+	filter: drop-shadow(0 0 8px color-mix(in srgb, var(--gold) 55%, transparent));
+}
+.cosmic-detail-note > div {
+	display: grid;
+	gap: 6px;
+}
+.cosmic-detail-note strong {
+	font-size: 16px;
+	color: var(--text, #eeeff8);
+	font-weight: 500;
+}
+.cosmic-detail-note > div > span {
+	font-size: 14px;
+	line-height: 1.8;
+}
+.cosmic-detail-link {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	margin-left: auto;
+	font-size: 14px;
+	white-space: nowrap;
+	color: var(--accent);
+}
+@media (max-width: 900px) {
+	.topbar-actions .topbar-local {
+		display: none;
+	}
+}
+@media (max-width: 680px) {
+	.cosmic-next {
+		gap: 12px;
+		padding: 15px;
+		flex-wrap: wrap;
+	}
+	.cosmic-next-title {
+		flex: 1;
+	}
+	.cosmic-next-action {
+		flex-basis: 100%;
+		justify-content: flex-end;
+	}
+	.cosmic-detail-note {
+		align-items: flex-start;
+		flex-wrap: wrap;
+		padding: 16px;
+		gap: 10px;
+	}
+	.cosmic-detail-note > div {
+		flex: 1;
+	}
+	.cosmic-detail-link {
+		flex-basis: 100%;
+		justify-content: flex-end;
+	}
+}

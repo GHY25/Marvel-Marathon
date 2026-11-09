@@ -1,83 +1,99 @@
 {
-	"name": "create-electron-vite-react-ts",
-	"version": "0.1.9",
-	"description": "Create an Electron + Vite + React + TypeScript desktop app.",
+	"name": "marvel-marathon",
+	"version": "0.1.0",
+	"description": "오프라인 MCU 영화 감상 기록과 나만의 평점",
 	"keywords": [
 		"electron",
-		"electron-vite",
-		"vite",
-		"react",
-		"typescript",
-		"desktop",
-		"scaffold",
-		"boilerplate",
-		"starter",
-		"template",
-		"create-electron-app",
-		"cross-platform",
-		"ipc",
-		"context-bridge"
+		"mcu",
+		"movie-diary",
+		"offline"
 	],
 	"license": "MIT",
 	"type": "module",
-	"bin": {
-		"create-electron-vite-react-ts": "bin/create-electron-vite-react-ts.js"
-	},
-	"files": [
-		"bin",
-		"electron",
-		"public",
-		"src",
-		".editorconfig",
-		".env.example",
-		"eslint.config.mjs",
-		".gitignore",
-		".prettierignore",
-		".prettierrc",
-		"electron.vite.config.ts",
-		"tsconfig.app.json",
-		"tsconfig.electron.json",
-		"tsconfig.json",
-		"README.md",
-		"LICENSE"
-	],
 	"scripts": {
 		"dev": "electron-vite dev",
 		"build": "tsc -b && electron-vite build",
 		"lint": "eslint .",
 		"start": "electron-vite preview",
-		"release": "npm run build && electron-builder",
+		"release": "npm run build && electron-builder --publish never",
 		"format": "prettier --write .",
-		"clean": "rimraf dist release node_modules/.cache",
-		"lang": "node -e \"if(process.platform==='win32'){require('child_process').spawnSync('chcp',['65001'],{stdio:'inherit',shell:true})}\""
+		"lang": "node -e \"if(process.platform==='win32'){require('child_process').spawnSync('chcp',['65001'],{stdio:'inherit',shell:true})}\"",
+		"test": "vitest run",
+		"test:e2e": "npm run build && playwright test",
+		"package:dir": "npm run build && electron-builder --dir",
+		"icons": "node scripts/generate-icon.mjs",
+		"postinstall": "node node_modules/electron/install.js"
 	},
 	"dependencies": {
-		"electron-vite": "^5.0.0",
-		"prettier": "^3.8.4",
+		"lucide-react": "^1.69.0",
 		"react": "^18.3.1",
-		"react-dom": "^18.3.1"
+		"react-dom": "^18.3.1",
+		"react-router-dom": "^7.18.5"
 	},
 	"devDependencies": {
+		"@eslint/js": "^9.39.5",
+		"@playwright/test": "^1.64.1",
+		"@types/node": "^24.0.0",
 		"@types/react": "^18.3.31",
 		"@types/react-dom": "^18.3.7",
 		"@typescript-eslint/eslint-plugin": "^8.61.0",
 		"@typescript-eslint/parser": "^8.61.0",
 		"@vitejs/plugin-react": "^4.7.0",
-		"electron": "^39.8.10",
+		"electron": "45.2.3",
 		"electron-builder": "^26.15.2",
 		"eslint": "^9.39.4",
 		"eslint-plugin-react-hooks": "^7.0.1",
 		"eslint-plugin-react-refresh": "^0.5.2",
 		"globals": "^17.6.0",
+		"sharp": "^0.35.5",
 		"typescript": "^5.9.3",
 		"vite": "^6.4.3",
-		"vite-plugin-electron": "^0.29.1",
-		"vite-plugin-electron-renderer": "^0.14.7"
+		"vitest": "^5.1.0",
+		"electron-vite": "^5.0.0",
+		"prettier": "^3.8.4"
 	},
 	"build": {
+		"files": [
+			"dist/**/*",
+			"package.json",
+			"LICENSE"
+		],
+		"linux": {
+			"icon": "public/app-icon.png",
+			"category": "AudioVideo",
+			"target": "AppImage"
+		},
+		"appId": "dev.personal.marvelmarathon",
+		"nsis": {
+			"deleteAppDataOnUninstall": false,
+			"allowToChangeInstallationDirectory": true,
+			"oneClick": false
+		},
+		"mac": {
+			"icon": "public/app-icon.png",
+			"category": "public.app-category.entertainment",
+			"target": "dmg"
+		},
+		"asar": true,
+		"productName": "Marvel Marathon",
+		"win": {
+			"artifactName": "Marvel-Marathon-${version}-Setup.${ext}",
+			"icon": "public/app-icon.ico",
+			"target": [
+				"nsis"
+			]
+		},
 		"directories": {
 			"output": "release"
 		}
 	},
-	"main": "dist/main/main.js"
+	"main": "dist/main/main.js",
+	"private": true,
+	"author": "Marvel Marathon contributors",
+	"engines": {
+		"node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+	},
+	"overrides": {
+		"minimatch@>=7 <11.0.1": "^11.0.4"
+	}
 }

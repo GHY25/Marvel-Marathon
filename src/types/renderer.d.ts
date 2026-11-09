@@ -1,9 +1,7 @@
+import type { MarvelMarathonAPI } from '../shared/types'
 declare global {
 	interface Window {
-		electronAPI: {
-			openExternal: (url: string) => Promise<void>
-		}
+		electronAPI: MarvelMarathonAPI
 	}
 }
-
 export {}

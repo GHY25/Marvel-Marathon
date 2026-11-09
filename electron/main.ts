@@ -1,29 +1,37 @@
-import { app, BrowserWindow, Menu, screen } from 'electron'
-import { fileURLToPath } from 'node:url'
+import { app, BrowserWindow, dialog, Menu, screen } from 'electron'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
 import { parseEnvBoolean, pickString, readDotEnvFile } from './dotenv'
 import { AppLogger } from './logger'
 import { openExternalUrl, registerIpcHandlers } from './ipc'
+import { registerMarathonHandlers } from './ipc-marathon'
+import { MarathonRepository } from './db/repository'
+import { isAllowedRendererPermission, isTrustedRendererUrl } from './security'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+app.setName('Marvel Marathon')
+app.setAppUserModelId('dev.personal.marvelmarathon')
+// Explicit opt-in isolates automated Electron runs from the user's real library.
+const testDataDirectory = process.env.MARATHON_TEST_MODE === '1' ? process.env.MARATHON_USER_DATA_DIR : undefined
+let userDataSetupFailed = false
+try {
+	const userDataDirectory = testDataDirectory || path.join(app.getPath('appData'), 'Marvel Marathon')
+	fs.mkdirSync(userDataDirectory, { recursive: true })
+	app.setPath('userData', userDataDirectory)
+} catch {
+	// Do not continue with Electron's default path if the intended storage is unavailable.
+	userDataSetupFailed = true
+}
 
 process.env.APP_ROOT = path.join(__dirname, '..', '..')
 
 /** `.env` / `process.env.SCREEN_CENTER`: center initial position when windowed and smaller than the display work area. */
-const SCREEN_CENTER = parseEnvBoolean(
-	pickString(process.env.SCREEN_CENTER, readDotEnvFile(process.env.APP_ROOT).SCREEN_CENTER),
-	false
-)
+const SCREEN_CENTER = parseEnvBoolean(pickString(process.env.SCREEN_CENTER, readDotEnvFile(process.env.APP_ROOT).SCREEN_CENTER), false)
 
 /** If `false`, clears the top/application menu. Default is `true`. */
-const ELECTRON_MENU_ENABLED = parseEnvBoolean(
-	pickString(
-		process.env.ELECTRON_MENU_ENABLED,
-		readDotEnvFile(process.env.APP_ROOT).ELECTRON_MENU_ENABLED
-	),
-	true
-)
+const ELECTRON_MENU_ENABLED = parseEnvBoolean(pickString(process.env.ELECTRON_MENU_ENABLED, readDotEnvFile(process.env.APP_ROOT).ELECTRON_MENU_ENABLED), true)
 
 // electron-vite 5+: dev URL is ELECTRON_RENDERER_URL; keep VITE_DEV_SERVER_URL as fallback
 export const VITE_DEV_SERVER_URL = process.env['ELECTRON_RENDERER_URL'] || process.env['VITE_DEV_SERVER_URL']
@@ -36,6 +44,8 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+let repository: MarathonRepository | undefined
+const expectedRendererUrl = VITE_DEV_SERVER_URL || pathToFileURL(path.join(RENDERER_DIST, 'index.html')).href
 const WINDOW_STATE_FILE = `window-state.${RUN_MODE}.json`
 const DEFAULT_WINDOW_SIZE: WindowState = { width: 1200, height: 800 }
 const logger = new AppLogger({
@@ -61,13 +71,7 @@ type WindowState = {
 type WindowLaunchDecision = {
 	state: WindowState
 	mode: 'restored' | 'primary-fallback'
-	reason:
-		| 'saved-display-missing'
-		| 'offscreen-bounds'
-		| 'saved-position-missing'
-		| 'normal-restore'
-		| 'normalized-to-display'
-		| 'restored-raw-same-display'
+	reason: 'saved-display-missing' | 'offscreen-bounds' | 'saved-position-missing' | 'normal-restore' | 'normalized-to-display' | 'restored-raw-same-display'
 	requestedDisplayId?: number
 	appliedDisplayId?: number
 }
@@ -89,14 +93,14 @@ function readWindowState(): { normalized: WindowState | null; raw: Partial<Windo
 
 		return {
 			normalized: {
-				width: Math.max(400, Math.floor(parsed.width)),
-				height: Math.max(300, Math.floor(parsed.height)),
+				width: Math.max(760, Math.floor(parsed.width)),
+				height: Math.max(600, Math.floor(parsed.height)),
 				x: typeof parsed.x === 'number' ? Math.floor(parsed.x) : undefined,
 				y: typeof parsed.y === 'number' ? Math.floor(parsed.y) : undefined,
 				offsetX: typeof parsed.offsetX === 'number' ? Math.floor(parsed.offsetX) : undefined,
 				offsetY: typeof parsed.offsetY === 'number' ? Math.floor(parsed.offsetY) : undefined,
-			workAreaWidth: typeof parsed.workAreaWidth === 'number' ? Math.floor(parsed.workAreaWidth) : undefined,
-			workAreaHeight: typeof parsed.workAreaHeight === 'number' ? Math.floor(parsed.workAreaHeight) : undefined,
+				workAreaWidth: typeof parsed.workAreaWidth === 'number' ? Math.floor(parsed.workAreaWidth) : undefined,
+				workAreaHeight: typeof parsed.workAreaHeight === 'number' ? Math.floor(parsed.workAreaHeight) : undefined,
 				isMaximized: typeof parsed.isMaximized === 'boolean' ? parsed.isMaximized : false,
 				displayId: typeof parsed.displayId === 'number' ? parsed.displayId : undefined,
 			},
@@ -108,14 +112,9 @@ function readWindowState(): { normalized: WindowState | null; raw: Partial<Windo
 }
 
 function isVisibleOnAnyDisplay(bounds: Electron.Rectangle) {
-	return screen.getAllDisplays().some((display) => {
+	return screen.getAllDisplays().some(display => {
 		const area = display.workArea
-		return (
-			bounds.x + bounds.width > area.x &&
-			bounds.x < area.x + area.width &&
-			bounds.y + bounds.height > area.y &&
-			bounds.y < area.y + area.height
-		)
+		return bounds.x + bounds.width > area.x && bounds.x < area.x + area.width && bounds.y + bounds.height > area.y && bounds.y < area.y + area.height
 	})
 }
 
@@ -133,8 +132,8 @@ function clamp(value: number, min: number, max: number) {
 
 function normalizeStateToDisplay(state: WindowState, display: Electron.Display): WindowState {
 	const area = display.workArea
-	const width = Math.max(state.width, 400)
-	const height = Math.max(state.height, 300)
+	const width = Math.max(state.width, 760)
+	const height = Math.max(state.height, 600)
 	const defaultCentered = getCenteredBoundsInDisplay(width, height, display)
 	const minX = area.x
 	const maxX = area.x + area.width - width
@@ -161,7 +160,7 @@ function normalizeStateToDisplay(state: WindowState, display: Electron.Display):
 
 function resolveDisplayForWindow(state: WindowState): Electron.Display {
 	if (state.displayId !== undefined) {
-		const found = screen.getAllDisplays().find((d) => d.id === state.displayId)
+		const found = screen.getAllDisplays().find(d => d.id === state.displayId)
 		if (found) return found
 	}
 	return screen.getDisplayMatching({
@@ -222,7 +221,7 @@ function getSafeWindowState(): WindowLaunchDecision {
 	const primaryDisplay = screen.getPrimaryDisplay()
 
 	if (saved?.displayId !== undefined) {
-		const savedDisplay = screen.getAllDisplays().find((display) => display.id === saved.displayId)
+		const savedDisplay = screen.getAllDisplays().find(display => display.id === saved.displayId)
 		if (!savedDisplay) {
 			const normalized = normalizeStateToDisplay(fallback, primaryDisplay)
 			return {
@@ -279,11 +278,7 @@ function getSafeWindowState(): WindowLaunchDecision {
 
 	const matchedDisplay = screen.getDisplayMatching(bounds)
 	const normalized = normalizeStateToDisplay(fallback, matchedDisplay)
-	const isChanged =
-		normalized.width !== fallback.width ||
-		normalized.height !== fallback.height ||
-		normalized.x !== fallback.x ||
-		normalized.y !== fallback.y
+	const isChanged = normalized.width !== fallback.width || normalized.height !== fallback.height || normalized.x !== fallback.x || normalized.y !== fallback.y
 	return {
 		state: normalized,
 		mode: 'restored',
@@ -296,7 +291,8 @@ function getSafeWindowState(): WindowLaunchDecision {
 function saveWindowState(targetWindow: BrowserWindow): WindowState | null {
 	if (targetWindow.isDestroyed()) return null
 	const isMaximized = targetWindow.isMaximized()
-	const bounds = isMaximized ? targetWindow.getNormalBounds() : targetWindow.getBounds()
+	// Fullscreen is temporary; reopening the app must restore its normal window size.
+	const bounds = targetWindow.getNormalBounds()
 	const display = screen.getDisplayMatching(bounds)
 	const displayId = display.id
 	const area = display.workArea
@@ -321,11 +317,7 @@ function createWindow() {
 	const launchDecision = getSafeWindowState()
 	const beforeCenter = launchDecision.state
 	const safeWindowState = applyScreenCenterIfNeeded(beforeCenter)
-	if (
-		SCREEN_CENTER &&
-		!safeWindowState.isMaximized &&
-		(safeWindowState.x !== beforeCenter.x || safeWindowState.y !== beforeCenter.y)
-	) {
+	if (SCREEN_CENTER && !safeWindowState.isMaximized && (safeWindowState.x !== beforeCenter.x || safeWindowState.y !== beforeCenter.y)) {
 		logger.info('WINDOW', 'SCREEN_CENTER: centered window on work area', {
 			displayId: safeWindowState.displayId,
 			before: `${beforeCenter.width}x${beforeCenter.height}@(${beforeCenter.x ?? '?'},${beforeCenter.y ?? '?'})`,
@@ -341,18 +333,28 @@ function createWindow() {
 
 	win = new BrowserWindow({
 		show: false,
+		title: 'Marvel Marathon',
+		backgroundColor: '#0b0f17',
+		minWidth: 760,
+		minHeight: 600,
 		width: safeWindowState.width,
 		height: safeWindowState.height,
 		x: safeWindowState.x,
 		y: safeWindowState.y,
-		icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+		icon: path.join(process.env.VITE_PUBLIC, 'app-icon.png'),
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
-			preload: path.join(__dirname, '..', 'preload', 'preload.js'),
+			preload: path.join(__dirname, '..', 'preload', 'preload.cjs'),
 			sandbox: true,
 		},
 	})
+	win.webContents.on('will-navigate', (event, url) => {
+		if (!isTrustedRendererUrl(url, expectedRendererUrl)) event.preventDefault()
+	})
+	win.webContents.on('will-attach-webview', event => event.preventDefault())
+	win.webContents.session.setPermissionRequestHandler((contents, permission, callback, details) => callback(isAllowedRendererPermission(contents, win?.webContents, permission, details, expectedRendererUrl)))
+	win.webContents.session.setPermissionCheckHandler((contents, permission, _requestingOrigin, details) => isAllowedRendererPermission(contents, win?.webContents, permission, details, expectedRendererUrl))
 
 	win.webContents.setWindowOpenHandler(({ url }) => {
 		void openExternalUrl(url).catch((error: unknown) => {
@@ -367,10 +369,10 @@ function createWindow() {
 	if (VITE_DEV_SERVER_URL) {
 		logger.info('WINDOW', 'Loading URL', { url: VITE_DEV_SERVER_URL })
 		win.loadURL(VITE_DEV_SERVER_URL)
-		win.webContents.openDevTools({ mode: 'right' })
+		if (process.env.OPEN_DEVTOOLS === 'true') win.webContents.openDevTools({ mode: 'right' })
 	} else {
 		logger.info('WINDOW', 'Loading file', {
-			path: path.join(RENDERER_DIST, 'index.html')
+			path: path.join(RENDERER_DIST, 'index.html'),
 		})
 		// win.loadFile('dist/index.html')
 		win.loadFile(path.join(RENDERER_DIST, 'index.html'))
@@ -392,8 +394,12 @@ function createWindow() {
 	})
 
 	win.on('close', () => {
-		saveWindowState(win!)
-		logger.info('SHUTDOWN', 'Window state saved')
+		try {
+			saveWindowState(win!)
+			logger.info('SHUTDOWN', 'Window state saved')
+		} catch {
+			logger.info('WARN', 'Window state could not be saved')
+		}
 	})
 }
 
@@ -413,18 +419,46 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
 	// On OS X it's common to re-create a window in the app when the
 	// dock icon is clicked and there are no other windows open.
-	if (BrowserWindow.getAllWindows().length === 0) {
+	if (repository && BrowserWindow.getAllWindows().length === 0) {
 		createWindow()
 	}
 })
 
-app.whenReady().then(() => {
-	logger.init()
-	if (!ELECTRON_MENU_ENABLED) {
-		Menu.setApplicationMenu(null)
-		logger.info('SYSTEM', 'Application menu disabled (ELECTRON_MENU_ENABLED=false)')
-	}	
-	logger.log('STARTUP', 'Phase: IPC handlers register')
-	registerIpcHandlers()
-	createWindow()
+app.on('will-quit', () => {
+	repository?.close()
+	repository = undefined
 })
+
+function reportStartupError() {
+	try {
+		dialog.showErrorBox('Marvel Marathon을 시작할 수 없습니다', '로컬 데이터 저장소를 열지 못했습니다. 기존 기록은 초기화하지 않았습니다. 저장 공간과 파일 권한을 확인한 뒤 다시 실행해 주세요.')
+	} finally {
+		app.quit()
+	}
+}
+
+const hasInstanceLock = !userDataSetupFailed && app.requestSingleInstanceLock()
+if (userDataSetupFailed) void app.whenReady().then(reportStartupError)
+else if (!hasInstanceLock) app.quit()
+else {
+	app.on('second-instance', () => {
+		if (win?.isMinimized()) win.restore()
+		win?.focus()
+	})
+
+	app.whenReady()
+		.then(() => {
+			logger.init()
+			if (!ELECTRON_MENU_ENABLED) {
+				Menu.setApplicationMenu(null)
+				logger.info('SYSTEM', 'Application menu disabled (ELECTRON_MENU_ENABLED=false)')
+			}
+			logger.log('STARTUP', 'Phase: IPC handlers register')
+			const filename = app.isPackaged ? 'marvel-marathon.sqlite3' : 'marvel-marathon.development.sqlite3'
+			repository = new MarathonRepository(path.join(app.getPath('userData'), filename))
+			registerIpcHandlers(() => win?.webContents, expectedRendererUrl)
+			registerMarathonHandlers(repository, () => win, expectedRendererUrl)
+			createWindow()
+		})
+		.catch(reportStartupError)
+}
