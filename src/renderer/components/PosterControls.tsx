@@ -49,7 +49,7 @@ export function PosterSettings({ data }: { data: MarathonData }) {
 		<section className="panel poster-settings">
 			<SectionTitle title="영화 포스터" subtitle="38편의 실제 포스터를 가져와 나만의 컬렉션을 완성하세요." />
 			<div className="poster-setup-intro">
-				<p>TMDB에서 한국어 포스터를 우선 찾아요. 한 번 가져온 이미지는 이 기기에 저장되어 인터넷 없이도 볼 수 있어요.</p>
+				<p>TMDB에서 영어 원문 포스터를 우선 찾아요. 영어 포스터가 없으면 언어 표시가 없는 이미지를 사용하고, 한 번 가져온 이미지는 인터넷 없이도 볼 수 있어요.</p>
 				<button type="button" className="text-link" onClick={() => void openKeyPage()}>
 					TMDB 키 발급 페이지 <ExternalLink size={15} />
 				</button>
@@ -84,7 +84,7 @@ export function PosterSettings({ data }: { data: MarathonData }) {
 			<div className="poster-sync-actions">
 				<label className="poster-refresh">
 					<input type="checkbox" checked={refresh} disabled={disabled} onChange={event => setRefresh(event.target.checked)} />
-					저장된 TMDB 포스터도 새로 받기
+					저장된 포스터도 영어로 새로 받기
 				</label>
 				<button type="button" className="button primary" disabled={disabled || !status?.hasCredential} onClick={() => void perform('start')}>
 					<Download size={17} />
@@ -96,7 +96,7 @@ export function PosterSettings({ data }: { data: MarathonData }) {
 					</button>
 				)}
 			</div>
-			<p className="footnote">직접 선택한 이미지는 유지됩니다. 영화 상세에서 언제든 원하는 JPG·PNG로 바꿀 수 있어요.</p>
+			<p className="footnote">이미 한국어 포스터를 받았다면 ‘저장된 포스터도 영어로 새로 받기’를 켜고 다시 가져오세요. 직접 선택한 이미지는 유지됩니다.</p>
 			{status && status.total > 0 && (
 				<div className="poster-progress">
 					<progress max={status.total} value={status.completed} aria-label="포스터 가져오기 진행률" />
@@ -112,7 +112,7 @@ export function PosterSettings({ data }: { data: MarathonData }) {
 									</li>
 								))}
 							</ul>
-							<p className="footnote">빈 포스터부터 이어서 받으려면 ‘저장된 TMDB 포스터도 새로 받기’ 옵션을 꺼 주세요.</p>
+							<p className="footnote">빈 포스터부터 이어서 받으려면 ‘저장된 포스터도 영어로 새로 받기’ 옵션을 꺼 주세요.</p>
 						</details>
 					)}
 				</div>

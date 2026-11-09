@@ -52,7 +52,7 @@
 ## 선택적 TMDB 포스터와 사용자 이미지 (2026-11-09)
 
 - 원래 명세에서 미뤄 둔 외부 포스터와 사용자 커버를 후속 사용자 요청으로 구현했다. 감상 기록·통계·우주 지도는 계속 API 키와 인터넷 없이 동작하며, 설정에서 명시적으로 가져오기를 실행할 때만 Main 프로세스가 TMDB에 연결한다.
-- 공식 [검색 API](https://developer.themoviedb.org/reference/search-movie)로 영문 제목과 개봉 연도를 대조한다. 정규화한 제목과 연도가 유일하게 일치할 때만 연결하고, [이미지 API](https://developer.themoviedb.org/reference/movie-images)로 한국어 → 영어 → 언어 없음 순서의 세로 포스터를 선택한다. 검색 결과의 기본 포스터를 최종 대안으로 사용한다. 자동 확정할 수 없는 작품은 직접 이미지 선택을 안내한다.
+- 공식 [검색 API](https://developer.themoviedb.org/reference/search-movie)로 영문 제목과 개봉 연도를 대조한다. 정규화한 제목과 연도가 유일하게 일치할 때만 연결한다. 후속 영어 원문 요청에 따라 [이미지 API](https://developer.themoviedb.org/reference/movie-images)로 영어 → 언어 없음 순서의 세로 포스터를 선택한다. 한국어 등 다른 언어와 언어를 확정할 수 없는 검색 결과의 기본 포스터는 사용하지 않는다. 지원하는 포스터가 없으면 기존 커버를 유지하고 이유를 안내한다.
 - [공식 인증 방식](https://developer.themoviedb.org/docs/authentication-application)에 따라 API Key(v3)와 Read Access Token(Bearer)을 모두 지원한다. Electron safeStorage로 암호화한 값만 DB에 저장하고 조회 IPC는 저장 여부만 반환한다. 평문 저장밖에 지원하지 않는 환경에서는 키 저장을 거절하며 기존 감상 기능과 직접 이미지는 계속 사용할 수 있다.
 - 네트워크 대상은 고정된 TMDB API와 이미지 CDN뿐이다. 리다이렉트를 차단하고 다운로드 시간·용량, 이미지 이름과 형식·픽셀 수를 제한한다. API 키를 이미지 CDN에 보내지 않으며 오류에 URL·키·원본 예외를 포함하지 않는다. 별도 외부 이미지 CSP 허용이나 범용 파일 접근 IPC를 추가하지 않았다.
 - SQLite 스키마를 1 → 2로 올려 포스터 JPEG와 암호화 설정 테이블을 추가한다. 기존 영화·감상 기록은 보존한다. 자동·사용자 이미지를 별도로 보관하고 사용자 이미지가 있으면 우선 표시한다. 직접 고른 원본은 최대 500×750 JPEG로 복사해 원본 파일 이동에도 영향을 받지 않는다.
@@ -62,3 +62,10 @@
 - 설정 앱 정보에 TMDB 공식 로고와 필수 출처 고지를 추가했다. 영화 포스터는 배포본에 사전 포함하지 않는다. 실제 키를 제공받지 않았으므로 TMDB 실서버 인증·38편 실데이터 매칭은 미검증이며, 테스트는 TMDB 형식의 고정 응답을 주입하되 실제 IPC·이미지 처리·SQLite·Windows 암호화·재시작을 사용한다.
 
 주요 변경 파일: `electron/db/repository.ts`, `electron/services/{tmdb-client,poster-service,poster-image}.ts`, `electron/ipc-marathon.ts`, `electron/channels.ts`, `electron/preload.ts`, `src/shared/types.ts`, `src/renderer/hooks/useMarathonData.ts`, `src/renderer/components/{Common,PosterControls}.tsx`, `PosterControls.css`, `pages/{Movies,Journal}.tsx`, `public/tmdb-logo.svg`, `tests/posters.test.ts`, `tests/storage.test.ts`, `tests/e2e/posters.spec.ts`.
+
+## 영어 원문 포스터로 변경 (2026-11-09)
+
+- 포스터 아래의 앱 제목은 이미 영어였으며, 한국어 제목은 한국어판 포스터 이미지에 포함된 글씨였다. 사용자가 영어 원문을 요청하여 처음 구현한 한국어 우선 선택을 영어 우선으로 바꿨다.
+- TMDB 이미지 요청은 `language=en`, `include_image_language=en,null`로 제한한다. 응답에서도 영어를 먼저 선택하고, 없으면 언어 표시 없는 포스터만 사용한다. 다른 언어의 이미지나 언어 정보가 없는 검색 결과의 기본 포스터로 되돌아가지 않는다. 적합한 이미지가 없을 때는 기존 이미지를 지우지 않고 실패 이유를 표시한다.
+- 설정의 갱신 옵션을 **저장된 포스터도 영어로 새로 받기**로 명시했다. 이전 한국어 이미지는 이 옵션을 켜고 다시 가져오면 교체된다. 업데이트만으로 기존 캐시를 지우거나 네트워크 요청을 시작하지 않으며, 사용자가 직접 고른 이미지는 유지한다.
+- DB·IPC·감상 기록 형식은 그대로 유지한다. 테스트는 높은 평점의 한국어 포스터보다 영어 포스터가 선택되는지, 지원 언어가 없을 때 검색 기본 이미지로 우회하지 않는지, 이전 버전 자동 캐시를 실제 Electron의 새로 받기로 교체하는지 검사한다.

@@ -32,18 +32,18 @@ const normalizeTitle = (title: string) =>
 		.replace(/[^\p{L}\p{N}]/gu, '')
 const object = (value: unknown): Record<string, unknown> => (value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {})
 
-export function matchMovie(raw: unknown, movie: Movie): { id: number; posterPath: unknown } {
+export function matchMovie(raw: unknown, movie: Movie): { id: number } {
 	const results = object(raw).results
 	if (!Array.isArray(results)) throw new PosterFetchError('TMDB 영화 응답을 읽지 못했어요.')
 	const matches = results.map(object).filter(item => Number.isSafeInteger(item.id) && Number(item.id) > 0 && item.adult !== true && typeof item.release_date === 'string' && item.release_date.slice(0, 4) === String(movie.releaseYear) && [item.title, item.original_title].some(title => typeof title === 'string' && normalizeTitle(title) === normalizeTitle(movie.titleEn)))
 	if (matches.length !== 1) throw new PosterFetchError('제목과 개봉 연도가 일치하는 영화를 확정하지 못했어요. 직접 이미지를 선택할 수 있어요.')
-	return { id: Number(matches[0].id), posterPath: matches[0].poster_path }
+	return { id: Number(matches[0].id) }
 }
 
-export function choosePoster(raw: unknown, fallback: unknown): string {
+export function choosePoster(raw: unknown): string {
 	const posters = object(raw).posters
 	if (!Array.isArray(posters)) throw new PosterFetchError('TMDB 포스터 응답을 읽지 못했어요.')
-	const languageOrder = ['ko', 'en', null]
+	const languageOrder = ['en', null]
 	const choices = posters
 		.map(object)
 		.filter(item => {
@@ -55,7 +55,9 @@ export function choosePoster(raw: unknown, fallback: unknown): string {
 			return languageOrder.includes(item.iso_639_1 as string | null) && typeof item.width === 'number' && typeof item.height === 'number' && item.height > item.width
 		})
 		.sort((a, b) => languageOrder.indexOf(a.iso_639_1 as string | null) - languageOrder.indexOf(b.iso_639_1 as string | null) || Number(b.vote_average || 0) - Number(a.vote_average || 0) || Number(b.width) - Number(a.width))
-	return posterImageUrl(choices[0]?.file_path ?? fallback)
+	// A search result's default poster has no reliable language metadata and can be Korean.
+	if (!choices.length) throw new PosterFetchError('영어 또는 언어 표시 없는 포스터를 찾지 못했어요. 기존 커버는 유지됩니다.')
+	return posterImageUrl(choices[0].file_path)
 }
 
 async function boundedRequest(url: URL | string, headers: Record<string, string>, limit: number, signal: AbortSignal): Promise<Buffer> {
@@ -102,7 +104,7 @@ export async function fetchTmdbPoster(movie: Movie, credential: string, signal: 
 		}
 	}
 	const matched = matchMovie(await api('search/movie', { query: movie.titleEn, primary_release_year: String(movie.releaseYear), language: 'en-US', include_adult: 'false' }), movie)
-	const imageUrl = choosePoster(await api(`movie/${matched.id}/images`, { include_image_language: 'ko,en,null' }), matched.posterPath)
+	const imageUrl = choosePoster(await api(`movie/${matched.id}/images`, { language: 'en', include_image_language: 'en,null' }))
 	// CDN receives no API credentials. Redirects are not followed.
 	return boundedRequest(imageUrl, { Accept: 'image/jpeg,image/png' }, 10 * 1024 * 1024, signal)
 }

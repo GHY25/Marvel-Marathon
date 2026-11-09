@@ -21,12 +21,29 @@ describe('TMDB client boundaries and matching', () => {
 		expect(matchMovie({ results: [{ ...match, title: 'Thunderbolts', original_title: '', release_date: '2025-05-01' }] }, MOVIES[35]).id).toBe(1726)
 		for (const results of [[], [match, match], [{ ...match, release_date: '2009-01-01' }], [{ ...match, title: 'Iron Man documentary', original_title: '' }], [{ ...match, adult: true }]]) expect(() => matchMovie({ results }, MOVIES[0])).toThrow()
 	})
-	it('prefers Korean then English then unlabelled posters, otherwise validated default', () => {
+	it('prefers English over Korean and unlabelled posters regardless of popularity', () => {
 		const poster = (language: string | null, file: string) => ({ iso_639_1: language, file_path: `/${file}.jpg`, width: 500, height: 750 })
-		expect(choosePoster({ posters: [poster('en', 'en'), poster('ko', 'ko')] }, '/fallback.jpg')).toContain('/ko.jpg')
-		expect(choosePoster({ posters: [poster(null, 'null'), poster('en', 'en')] }, null)).toContain('/en.jpg')
-		expect(choosePoster({ posters: [poster(null, 'none')] }, null)).toContain('/none.jpg')
-		expect(choosePoster({ posters: [] }, '/fallback.jpg')).toContain('/fallback.jpg')
+		expect(
+			choosePoster({
+				posters: [
+					{ ...poster('ko', 'ko'), vote_average: 10 },
+					{ ...poster('en', 'en'), vote_average: 1 },
+				],
+			})
+		).toContain('/en.jpg')
+		expect(choosePoster({ posters: [poster(null, 'null'), poster('en', 'en')] })).toContain('/en.jpg')
+		expect(choosePoster({ posters: [poster('ko', 'ko'), poster(null, 'none')] })).toContain('/none.jpg')
+	})
+	it('rejects unsupported languages and missing language metadata instead of using a Korean default', () => {
+		for (const posters of [[], [{ iso_639_1: 'ko', file_path: '/ko.jpg', width: 500, height: 750 }], [{ file_path: '/unknown.jpg', width: 500, height: 750 }]]) {
+			expect(() => choosePoster({ posters })).toThrow('영어 또는 언어 표시 없는 포스터')
+		}
+	})
+	it('never downloads an unverified default poster when the image response has no supported language', async () => {
+		const request = vi.fn(async (url: string | URL) => (String(url).includes('/search/') ? Response.json({ results: [match] }) : Response.json({ posters: [] })))
+		vi.stubGlobal('fetch', request)
+		await expect(fetchTmdbPoster(MOVIES[0], key, new AbortController().signal)).rejects.toThrow('영어 또는 언어 표시 없는 포스터')
+		expect(request).toHaveBeenCalledTimes(2)
 	})
 	it('does not turn untrusted poster paths into arbitrary network requests', () => {
 		for (const input of ['https://evil.test/a.jpg', '//evil.test/a.jpg', '/../../secret.jpg', '/foo.jpg?key=x', '/foo.svg', '/foo%2fbar.jpg', null]) expect(() => posterImageUrl(input)).toThrow()
@@ -38,13 +55,16 @@ describe('TMDB client boundaries and matching', () => {
 			vi.fn(async (url: string | URL, init: RequestInit) => {
 				requests.push({ url: new URL(url), init })
 				if (String(url).includes('/search/')) return Response.json({ results: [match] })
-				if (String(url).includes('/images')) return Response.json({ posters: [] })
+				if (String(url).includes('/images')) return Response.json({ posters: [{ iso_639_1: 'en', file_path: '/english.jpg', width: 500, height: 750 }] })
 				return new Response(jpeg)
 			})
 		)
 		expect(await fetchTmdbPoster(MOVIES[0], credential, new AbortController().signal)).toEqual(jpeg)
 		expect(requests.map(item => item.url.hostname)).toEqual(['api.themoviedb.org', 'api.themoviedb.org', 'image.tmdb.org'])
 		expect(requests[0].url.searchParams.get('primary_release_year')).toBe('2008')
+		expect(requests[1].url.searchParams.get('language')).toBe('en')
+		expect(requests[1].url.searchParams.get('include_image_language')).toBe('en,null')
+		expect(requests[2].url.pathname).toBe('/t/p/w500/english.jpg')
 		expect(requests[0].url.searchParams.get('api_key')).toBe(credential === key ? key : null)
 		expect((requests[0].init.headers as Record<string, string>).Authorization).toBe(credential === key ? undefined : `Bearer ${token}`)
 		expect(requests[2].url.searchParams.toString()).toBe('')
