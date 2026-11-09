@@ -22,7 +22,7 @@
 		"test:e2e": "npm run build && playwright test",
 		"package:dir": "npm run build && electron-builder --dir",
 		"icons": "node scripts/generate-icon.mjs",
-		"postinstall": "node node_modules/electron/install.js"
+		"postinstall": "node -e \"if (process.env.ELECTRON_SKIP_BINARY_DOWNLOAD !== '1') require('electron/install')\""
 	},
 	"dependencies": {
 		"lucide-react": "^1.69.0",

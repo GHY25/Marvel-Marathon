@@ -17,6 +17,8 @@ npm run dev
 
 postinstall이 Electron 바이너리를 설치합니다. 프록시 등으로 다운로드가 실패하면 네트워크 설정 후 `node node_modules/electron/install.js`를 다시 실행하세요.
 
+Electron을 실행하지 않는 CI 코드 검사에서는 `ELECTRON_SKIP_BINARY_DOWNLOAD=1`로 실행 파일 다운로드만 생략할 수 있습니다. 실제 앱 실행과 패키징에는 Electron 바이너리가 필요합니다.
+
 ```powershell
 npm run lint          # 정적 검사
 npm test              # 도메인 / SQLite / 백업 / 보안 테스트
