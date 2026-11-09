@@ -7,7 +7,7 @@ import { CATALOG, MOVIES, TV_TITLES } from '../src/shared/catalog'
 import { buildStatistics, filterMovies } from '../src/shared/statistics'
 import { MarathonRepository } from '../electron/db/repository'
 import { fetchTmdbPoster, matchMovie } from '../electron/services/tmdb-client'
-import { CONSTELLATIONS, layoutConstellation, WORLD_HEIGHT } from '../src/renderer/components/universe/constellations'
+import { CONSTELLATIONS, layoutConstellation, WORLD_HEIGHT, WORLD_WIDTH } from '../src/renderer/components/universe/constellations'
 
 afterEach(() => vi.unstubAllGlobals())
 const loki1 = TV_TITLES.find(title => title.id === 'mcu-tv-loki-s01')!
@@ -46,20 +46,63 @@ describe('Disney+ catalog and seasons', () => {
 			repo.close()
 		}
 	})
-	it('creates a unique reachable star for every season and keeps positions when filtering', () => {
+	it('keeps every star in bounds and preserves film and companion positions across media filters', () => {
 		for (const base of CONSTELLATIONS) {
 			const titles = CATALOG.filter(title => title.phase === base.phase)
 			const full = layoutConstellation(base, titles)
 			expect(full.points).toHaveLength(titles.length)
 			expect(new Set(full.points.map(point => `${point.x},${point.y}`)).size).toBe(titles.length)
-			expect(base.y + full.height).toBeLessThan(WORLD_HEIGHT)
-			const series = titles.filter(title => title.mediaType === 'series')
-			const filtered = layoutConstellation(base, series)
-			series.forEach((title, index) => expect(filtered.points[index]).toEqual(full.points[titles.indexOf(title)]))
+			expect(full.x).toBeGreaterThanOrEqual(0)
+			expect(full.y).toBeGreaterThanOrEqual(0)
+			expect(full.x + full.width).toBeLessThan(WORLD_WIDTH)
+			expect(full.y + full.height).toBeLessThan(WORLD_HEIGHT)
+			full.points.forEach(point => {
+				expect(point.x).toBeGreaterThanOrEqual(0)
+				expect(point.x).toBeLessThan(full.width)
+				expect(point.y).toBeGreaterThanOrEqual(0)
+				expect(point.y).toBeLessThan(full.height)
+			})
 			full.edges.forEach(([a, b]) => {
 				expect(full.points[a]).toBeDefined()
 				expect(full.points[b]).toBeDefined()
 			})
+			for (const mediaType of ['movie', 'series', 'special'] as const) {
+				const selected = titles.filter(title => title.mediaType === mediaType)
+				const filtered = layoutConstellation(base, selected)
+				expect(filtered.points).toHaveLength(selected.length)
+				selected.forEach((title, index) => {
+					const original = full.points[titles.indexOf(title)]
+					expect(filtered.x + filtered.points[index].x).toBeCloseTo(full.x + original.x)
+					expect(filtered.y + filtered.points[index].y).toBeCloseTo(full.y + original.y)
+					expect(filtered.points[index].variant).toBe(original.variant)
+				})
+				filtered.edges.forEach(([a, b]) => {
+					expect(filtered.points[a]).toBeDefined()
+					expect(filtered.points[b]).toBeDefined()
+				})
+				if (mediaType === 'movie') {
+					filtered.points.forEach((point, index) => {
+						expect(filtered.x + point.x).toBeCloseTo(base.x + base.points[index].x)
+						expect(filtered.y + point.y).toBeCloseTo(base.y + base.points[index].y)
+					})
+				}
+				// Removing the special branches must leave one connected series pattern.
+				// Special-only views may contain independent stars with no connecting lines.
+				if (mediaType === 'series' && selected.length) {
+					const reached = new Set<number>()
+					const pending = [0]
+					while (pending.length) {
+						const current = pending.pop()!
+						if (reached.has(current)) continue
+						reached.add(current)
+						for (const [a, b] of filtered.edges) {
+							if (a === current) pending.push(b)
+							if (b === current) pending.push(a)
+						}
+					}
+					expect(reached.size).toBe(selected.length)
+				}
+			}
 		}
 	})
 })

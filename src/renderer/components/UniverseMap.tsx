@@ -153,17 +153,27 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 					<div className="universe-world" data-testid="universe-world" style={{ width: WORLD_WIDTH, height: WORLD_HEIGHT, transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})` }}>
 						{phases.map(phase => (
 							<div key={phase.phase} className={`universe-sector${phase.complete ? ' universe-sector-complete' : ''}`} data-testid="constellation" data-phase={phase.phase} style={{ ...phaseStyle(phase.color), left: phase.x, top: phase.y, width: phase.width, height: phase.height }}>
-								<div className="universe-sector-label" style={{ transform: `scale(${Math.max(1, Math.min(4, 1 / camera.scale))})`, width: `${100 / Math.max(1, Math.min(4, 1 / camera.scale))}%` }}>
-									<span>
-										<small>PHASE 0{phase.phase}</small>
-										<strong>{phase.skyName}</strong>
-									</span>
-									<span className="universe-sector-count">
-										{phase.watched}
-										<small> / {phase.movies.length}</small>
-										{phase.complete && <Check size={11} />}
-									</span>
-								</div>
+								{phase.filmLabel && (
+									<div className="universe-sector-label" style={{ left: phase.filmLabel.x, top: phase.filmLabel.y - 44, transform: `scale(${Math.max(1, Math.min(4, 1 / camera.scale))})` }}>
+										<span>
+											<small>PHASE 0{phase.phase}</small>
+											<strong>{phase.skyName}</strong>
+										</span>
+										<span className="universe-sector-count">
+											{phase.watched}
+											<small> / {phase.movies.length}</small>
+											{phase.complete && <Check size={11} />}
+										</span>
+									</div>
+								)}
+								{phase.companion && (
+									<div className="universe-companion-label" style={{ left: phase.companion.label.x, top: phase.companion.label.y, transform: `scale(${Math.max(1, Math.min(4, 1 / camera.scale))})` }}>
+										<span>
+											PHASE 0{phase.phase} · {[phase.movies.some(movie => movie.mediaType === 'series') && '시리즈', phase.movies.some(movie => movie.mediaType === 'special') && '스페셜'].filter(Boolean).join(' · ')}
+										</span>
+										<strong>{phase.companion.name}</strong>
+									</div>
+								)}
 								<svg className="universe-lines" viewBox={`0 0 ${phase.width} ${phase.height}`} aria-hidden="true">
 									{phase.edges.map(([from, to]) => {
 										const start = phase.points[from]
@@ -183,7 +193,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 											draggable={false}
 											className={`universe-star${lit ? ' universe-star-lit' : ''}${preview?.id === movie.id ? ' universe-star-selected' : ''}`}
 											style={{ left: point.x, top: point.y, width: hitSize, height: hitSize, transform: `translate(-50%, -50%) scale(${1 / camera.scale})`, '--star-size': `${point.size}px`, '--star-delay': `${index * -0.7}s` } as CSSProperties}
-											aria-label={`${movie.titleEn}, Phase ${movie.phase}, ${phase.skyName}, ${lit ? '시청 완료, 밝혀진 별' : '미시청, 아직 잠든 별'}`}
+											aria-label={`${movie.titleEn}, Phase ${movie.phase}, ${movie.mediaType === 'movie' ? phase.skyName : phase.companion?.name}, ${lit ? '시청 완료, 밝혀진 별' : '미시청, 아직 잠든 별'}`}
 											onMouseEnter={() => {
 												if (!isDragging) setPreviewId(movie.id)
 											}}
@@ -289,7 +299,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 					</button>
 				))}
 			</div>
-			<p className="universe-reference-note">실제 별자리에서 영감을 받은 영화의 별들 아래로, 시리즈와 스페셜의 새로운 별길이 이어집니다.</p>
+			<p className="universe-reference-note">영화의 별자리 곁에 같은 Phase의 시리즈와 스페셜이 모입니다. 확장의 날개, 시간의 고리, 새벽의 나침반은 이 우주만의 별자리예요.</p>
 		</section>
 	)
 }

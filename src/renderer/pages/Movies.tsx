@@ -139,7 +139,10 @@ export function MovieDetail({ data }: { data: MarathonData }) {
 				작품 목록
 			</Link>
 			<section className="movie-detail-hero">
-				<MovieCover movie={movie} />
+				<div className="detail-poster">
+					<MovieCover movie={movie} />
+					<PosterPicker movie={movie} data={data} />
+				</div>
 				<div className="detail-info">
 					<span className="eyebrow">THE MARATHON COLLECTION / {String(movie.releaseOrder).padStart(2, '0')}</span>
 					<div className="detail-tags">
@@ -177,12 +180,11 @@ export function MovieDetail({ data }: { data: MarathonData }) {
 							<span>최근 감상일</span>
 							<strong className="detail-date">{entries[0] ? formatDate(entries[0].watchDate) : '아직 미시청'}</strong>
 						</div>
+						<button type="button" className="button primary detail-add-entry" onClick={() => setForm('new')}>
+							<Plus size={17} />
+							감상 기록 추가
+						</button>
 					</div>
-					<button type="button" className="button primary" onClick={() => setForm('new')}>
-						<Plus size={17} />
-						감상 기록 추가
-					</button>
-					<PosterPicker movie={movie} data={data} />
 				</div>
 			</section>
 			<Link className={`cosmic-detail-note ${entries.length ? 'is-lit' : ''}`} to="/dashboard">
@@ -218,14 +220,19 @@ export function MovieDetail({ data }: { data: MarathonData }) {
 					</div>
 				) : (
 					<div className="entry-list">
+						<div className="entry-list-heading" aria-hidden="true">
+							<span>감상일</span>
+							<span>평점</span>
+							<span>감상평</span>
+						</div>
 						{entries.map((entry, index) => (
 							<article className="entry-card" key={entry.id}>
 								<div className="entry-top">
-									<div>
-										<time dateTime={entry.watchDate}>
-											<CalendarDays size={20} />
-											{formatDate(entry.watchDate)}
-										</time>
+									<time dateTime={entry.watchDate}>
+										<CalendarDays size={16} />
+										{formatDate(entry.watchDate)}
+									</time>
+									<div className="entry-meta">
 										<span className="entry-number">{entries.length - index}번째 감상</span>
 										{entries.length - index > 1 && <span className="mini-badge">재관람</span>}
 									</div>

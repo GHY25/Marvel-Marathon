@@ -132,8 +132,20 @@ test('real Electron: CRUD, rewatch ratings, filters, persistence, backup and res
 		const dateBox = (await record.locator('time').boundingBox())!
 		const ratingBox = (await record.locator('.entry-rating').boundingBox())!
 		const reviewBox = (await record.locator('.entry-review-block').boundingBox())!
-		expect(dateBox.y + dateBox.height).toBeLessThan(ratingBox.y)
-		expect(ratingBox.y + ratingBox.height).toBeLessThan(reviewBox.y)
+		expect(dateBox.x + dateBox.width).toBeLessThan(ratingBox.x)
+		expect(ratingBox.x + ratingBox.width).toBeLessThan(reviewBox.x)
+		expect(Math.abs(ratingBox.y + ratingBox.height / 2 - reviewBox.y - reviewBox.height / 2)).toBeLessThan(2)
+		const posterBox = (await page.locator('.detail-poster > .movie-cover').boundingBox())!
+		const pickerBox = (await page.getByRole('button', { name: '내 이미지로 변경', exact: true }).boundingBox())!
+		expect(pickerBox.y).toBeGreaterThan(posterBox.y + posterBox.height)
+		expect(Math.abs(pickerBox.x - posterBox.x)).toBeLessThan(2)
+		const latestDateBox = (await page.locator('.detail-numbers > div').last().boundingBox())!
+		const addEntryBox = (await page.locator('.detail-add-entry').boundingBox())!
+		const summaryBox = (await page.locator('.detail-numbers').boundingBox())!
+		expect(addEntryBox.x).toBeGreaterThan(latestDateBox.x + latestDateBox.width)
+		expect(Math.abs(addEntryBox.y + addEntryBox.height / 2 - latestDateBox.y - latestDateBox.height / 2)).toBeLessThan(2)
+		expect(Math.abs(addEntryBox.x + addEntryBox.width - summaryBox.x - summaryBox.width)).toBeLessThan(2)
+		await page.locator('.movie-detail-hero').screenshot({ path: 'test-results/detail-summary-dark.png' })
 		await expect(page.locator('.toast')).toHaveCount(0)
 		await page.locator('.watch-history').screenshot({ path: 'test-results/watch-history-dark.png' })
 		await page.getByRole('button', { name: '밝은 테마로 전환', exact: true }).click()

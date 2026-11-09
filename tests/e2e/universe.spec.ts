@@ -126,6 +126,7 @@ test('a personal universe follows real watch history, and both themes survive re
 		await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 1200))
 		await page.getByRole('button', { name: '전체 우주 보기', exact: true }).click()
 		await page.screenshot({ path: 'test-results/universe-dark.png', fullPage: true, animations: 'disabled' })
+		await page.locator('.universe-atlas').screenshot({ path: 'test-results/universe-scattered-dark.png', animations: 'disabled' })
 
 		const backupPath = path.join(directory, 'six-stars.json')
 		await app!.evaluate(({ dialog }, filename) => {

@@ -333,7 +333,7 @@ select option {
 	border-color: #bbd2bf;
 }
 :root[data-theme='light'] .movie-art,
-:root[data-theme='light'] .movie-detail-hero > .movie-cover {
+:root[data-theme='light'] .detail-poster > .movie-cover {
 	border-color: #b4bdcc;
 }
 
