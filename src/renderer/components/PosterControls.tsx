@@ -47,9 +47,9 @@ export function PosterSettings({ data }: { data: MarathonData }) {
 	}
 	return (
 		<section className="panel poster-settings">
-			<SectionTitle title="영화 포스터" subtitle="38편의 실제 포스터를 가져와 나만의 컬렉션을 완성하세요." />
+			<SectionTitle title="작품 포스터" subtitle={`${data.movies.length}개 작품의 실제 포스터를 가져와 나만의 컬렉션을 완성하세요.`} />
 			<div className="poster-setup-intro">
-				<p>TMDB에서 영어 원문 포스터를 우선 찾아요. 영어 포스터가 없으면 언어 표시가 없는 이미지를 사용하고, 한 번 가져온 이미지는 인터넷 없이도 볼 수 있어요.</p>
+				<p>TMDB에서 영어 원문 포스터를 우선 찾아요. 시리즈는 시즌 포스터를 먼저 찾고, 없으면 시리즈 대표 포스터를 사용해요. 영어 포스터가 없으면 언어 표시가 없는 이미지를 사용하고, 저장 후에는 인터넷 없이도 볼 수 있어요.</p>
 				<button type="button" className="text-link" onClick={() => void openKeyPage()}>
 					TMDB 키 발급 페이지 <ExternalLink size={15} />
 				</button>
@@ -100,7 +100,7 @@ export function PosterSettings({ data }: { data: MarathonData }) {
 			{status && status.total > 0 && (
 				<div className="poster-progress">
 					<progress max={status.total} value={status.completed} aria-label="포스터 가져오기 진행률" />
-					<p role="status">{status.running ? `${status.completed} / ${status.total}편 · ${status.currentTitle}` : `${status.cancelled ? '가져오기 중지' : status.completed < status.total ? '가져오기 중단' : '가져오기 완료'} · ${status.saved}편 저장 · ${status.skipped}편 유지 · ${status.errors.length}편 실패${status.completed < status.total ? ` · ${status.total - status.completed}편 남음` : ''}`}</p>
+					<p role="status">{status.running ? `${status.completed} / ${status.total}편 · ${status.currentTitle} · ${status.saved}편 저장 · ${status.errors.length}편 실패` : `${status.cancelled ? '가져오기 중지' : status.completed < status.total ? '가져오기 중단' : '가져오기 완료'} · ${status.saved}편 저장 · ${status.skipped}편 유지 · ${status.errors.length}편 실패${status.completed < status.total ? ` · ${status.total - status.completed}편 남음` : ''}`}</p>
 					{status.errors.length > 0 && (
 						<details open>
 							<summary>가져오지 못한 포스터 {status.errors.length}편</summary>

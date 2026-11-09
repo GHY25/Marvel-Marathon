@@ -49,14 +49,14 @@ test('the seamless sky enters real fullscreen and restores the dashboard', async
 				].every(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-testid="universe-atlas"]'))
 			)
 		).toBe(true)
-		await expect(page.getByTestId('movie-star')).toHaveCount(38)
+		await expect(page.getByTestId('movie-star')).toHaveCount(64)
 	}
 	async function assertRestored(bounds: { x: number; y: number; width: number; height: number }) {
 		await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true)
 		await expect.poll(() => app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFullScreen())).toBe(false)
 		await expect.poll(windowBounds).toEqual(bounds)
 		await expect(page.getByRole('button', { name: '우주 전체 화면', exact: true })).toBeVisible()
-		await expect(page.getByTestId('movie-star')).toHaveCount(38)
+		await expect(page.getByTestId('movie-star')).toHaveCount(64)
 	}
 	try {
 		if (process.env.MARATHON_TEST_DEV === '1') {

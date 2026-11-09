@@ -9,21 +9,25 @@ import { EmptyState, MovieCover, PageHeading, Rating, SectionTitle } from '../co
 import { PhaseProgress, StatisticsCards } from '../components/StatisticsCards'
 import { ThemePicker } from '../components/ThemeControls'
 import { PosterSettings } from '../components/PosterControls'
+import { MediaFilter } from '../components/MediaFilter'
+import { filterMedia, mediaLabel, type MediaFilter as Filter } from '../../shared/media'
 
 export function Diary({ data }: { data: MarathonData }) {
 	const [query, setQuery] = useState('')
 	const [filter, setFilter] = useState('all')
+	const [type, setType] = useState<Filter>('all')
 	const entries = sortEntries(data.entries).filter(entry => {
 		const movie = data.movies.find(item => item.id === entry.movieId)!
-		return `${movie.titleEn} ${movie.titleKo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()) && (filter === 'all' || (filter === 'rated' ? entry.ratingTicks !== null : entry.ratingTicks === null))
+		return (type === 'all' || movie.mediaType === type) && `${movie.titleEn} ${movie.titleKo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()) && (filter === 'all' || (filter === 'rated' ? entry.ratingTicks !== null : entry.ratingTicks === null))
 	})
 	return (
 		<>
-			<PageHeading eyebrow="MOMENTS AFTER THE CREDITS" title="감상 일기" description="같은 영화도 매번 다른 이야기로 남으니까. 나의 감상 순간들을 모았어요." action={<span className="count-chip">총 {data.entries.length}개의 기록</span>} />
+			<PageHeading eyebrow="MOMENTS AFTER THE CREDITS" title="감상 일기" description="같은 작품도 매번 다른 이야기로 남으니까. 나의 감상 순간들을 모았어요." action={<span className="count-chip">총 {data.entries.length}개의 기록</span>} />
+			<MediaFilter value={type} onChange={setType} titles={data.movies} />
 			<div className="collection-tools">
 				<label className="search-field">
 					<Search size={18} />
-					<input aria-label="감상 일기 검색" placeholder="영화 제목으로 기록 찾기" value={query} onChange={event => setQuery(event.target.value)} />
+					<input aria-label="감상 일기 검색" placeholder="작품 제목으로 기록 찾기" value={query} onChange={event => setQuery(event.target.value)} />
 				</label>
 				<select aria-label="평점 필터" value={filter} onChange={event => setFilter(event.target.value)}>
 					<option value="all">모든 기록</option>
@@ -52,7 +56,7 @@ export function Diary({ data }: { data: MarathonData }) {
 										<Rating ticks={entry.ratingTicks} label />
 									</div>
 									<span className="muted">
-										{movie.releaseYear} · Phase {movie.phase}
+										{movie.releaseYear} · Phase {movie.phase} · {mediaLabel(movie)}
 									</span>
 									<p className={entry.review ? '' : 'muted'}>{entry.review || '감상평 없이 시청한 순간을 남겼어요.'}</p>
 									<Link className="text-link" to={`/movies/${movie.id}`}>
@@ -66,9 +70,9 @@ export function Diary({ data }: { data: MarathonData }) {
 				</div>
 			) : (
 				<div className="panel">
-					<EmptyState title={data.entries.length ? '조건에 맞는 감상 기록이 없어요.' : '아직 감상 기록이 없습니다.'} description={data.entries.length ? '검색어나 별점 필터를 변경해 보세요.' : '영화 목록에서 첫 기록을 남겨보세요.'}>
+					<EmptyState title={data.entries.length ? '조건에 맞는 감상 기록이 없어요.' : '아직 감상 기록이 없습니다.'} description={data.entries.length ? '검색어나 별점 필터를 변경해 보세요.' : '작품 목록에서 첫 기록을 남겨보세요.'}>
 						<Link className="button secondary" to="/movies">
-							영화 목록으로
+							작품 목록으로
 							<ArrowRight size={15} />
 						</Link>
 					</EmptyState>
@@ -104,13 +108,14 @@ function RankingRows({ ranking }: { ranking: RankingItem[] }) {
 }
 
 export function Ranking({ data }: { data: MarathonData }) {
-	const ranking = buildRanking(data.movies, data.entries)
+	const [type, setType] = useState<Filter>('all')
+	const ranking = buildRanking(filterMedia(data.movies, type), data.entries)
 	return (
 		<>
 			<PageHeading
 				eyebrow="YOUR UNIVERSE, YOUR FAVORITES"
 				title="나의 랭킹"
-				description="영화별 최신 유효 별점으로 완성되는, 오직 나만의 순위."
+				description="영화·시즌별 최신 유효 별점으로 완성되는, 오직 나만의 순위."
 				action={
 					<span className="count-chip">
 						<span aria-hidden="true">★</span>
@@ -118,6 +123,7 @@ export function Ranking({ data }: { data: MarathonData }) {
 					</span>
 				}
 			/>
+			<MediaFilter value={type} onChange={setType} titles={data.movies} />
 			{ranking.length ? (
 				<>
 					<div className="ranking-intro">
@@ -129,17 +135,17 @@ export function Ranking({ data }: { data: MarathonData }) {
 						<Rating ticks={ranking[0].ratingTicks} />
 					</div>
 					<div className="ranking-labels">
-						<span>RANK / FILM</span>
+						<span>RANK / TITLE</span>
 						<span>나의 별점</span>
 					</div>
 					<RankingRows ranking={ranking} />
-					<p className="footnote">별점이 없는 최근 감상은 기존 평가를 바꾸지 않아요. 같은 점수는 개봉 순서로 정렬됩니다.</p>
+					<p className="footnote">별점이 없는 최근 감상은 기존 평가를 바꾸지 않아요. 같은 점수는 컬렉션 순서(영화 개봉순, 시리즈 공개순)로 정렬됩니다.</p>
 				</>
 			) : (
 				<div className="panel">
-					<EmptyState title="아직 별점을 매긴 영화가 없습니다." description="별점을 매기면 나만의 MCU 랭킹이 만들어져요.">
+					<EmptyState title="아직 별점을 매긴 작품이 없습니다." description="별점을 매기면 나만의 MCU 랭킹이 만들어져요.">
 						<Link className="button primary" to="/movies">
-							좋아하는 영화 찾아보기
+							좋아하는 작품 찾아보기
 							<ArrowRight size={16} />
 						</Link>
 					</EmptyState>
@@ -150,11 +156,13 @@ export function Ranking({ data }: { data: MarathonData }) {
 }
 
 export function Statistics({ data }: { data: MarathonData }) {
-	const stats = buildStatistics(data.movies, data.entries)
+	const [type, setType] = useState<Filter>('all')
+	const stats = buildStatistics(filterMedia(data.movies, type), data.entries)
 	const highestBin = Math.max(1, ...stats.distribution.map(item => item.count))
 	return (
 		<>
 			<PageHeading eyebrow="A CLOSER LOOK AT YOUR JOURNEY" title="숫자로 보는 나의 취향" description="얼마나 봤는지, 무엇을 좋아했는지. 감상이 쌓일수록 선명해지는 취향." />
+			<MediaFilter value={type} onChange={setType} titles={data.movies} />
 			<StatisticsCards stats={stats} />
 			<div className="statistics-grid">
 				<section className="panel">
@@ -162,7 +170,7 @@ export function Statistics({ data }: { data: MarathonData }) {
 					<PhaseProgress stats={stats} averages />
 				</section>
 				<section className="panel distribution-panel">
-					<SectionTitle title="나의 별점 분포" subtitle={`별점을 남긴 ${stats.ratedMovies}편의 영화`} />
+					<SectionTitle title="나의 별점 분포" subtitle={`별점을 남긴 ${stats.ratedMovies}편의 작품`} />
 					<div className="distribution-chart" role="img" aria-label={`별점 분포: ${stats.distribution.map(item => `${item.ratingTicks / 2}점 ${item.count}편`).join(', ')}`}>
 						{stats.distribution.map(item => (
 							<div className="distribution-column" key={item.ratingTicks}>
@@ -174,7 +182,7 @@ export function Statistics({ data }: { data: MarathonData }) {
 							</div>
 						))}
 					</div>
-					<p className="footnote">평균과 분포는 영화별 최신 유효 별점을 기준으로 계산해요. 재관람 횟수는 평균에 영향을 주지 않아요.</p>
+					<p className="footnote">평균과 분포는 영화·시즌별 최신 유효 별점을 기준으로 계산해요. 재관람 횟수는 평균에 영향을 주지 않아요.</p>
 				</section>
 			</div>
 			<section className="panel top-five">
@@ -277,7 +285,7 @@ export function Settings({ data }: { data: MarathonData }) {
 					</div>
 					<div className="about-details">
 						<div>
-							<span>영화 카탈로그</span>
+							<span>작품 카탈로그</span>
 							<strong>{data.movies.length}편 · Phase 1—6</strong>
 						</div>
 						<div>

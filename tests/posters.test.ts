@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MarathonRepository } from '../electron/db/repository'
 import { PosterService, type PosterDependencies } from '../electron/services/poster-service'
 import { choosePoster, fetchTmdbPoster, matchMovie, posterImageUrl, PosterFetchError, validateCredential } from '../electron/services/tmdb-client'
-import { MOVIES } from '../src/shared/catalog'
+import { CATALOG as MOVIES } from '../src/shared/catalog'
 
 const key = 'a'.repeat(32)
 const token = 'test.access.token.'.repeat(5)
@@ -122,15 +122,15 @@ describe('poster synchronization and local persistence', () => {
 		service.saveCredential(key)
 		service.startSync(false)
 		await done(service)
-		expect(service.status()).toMatchObject({ total: 38, completed: 38, saved: 38, skipped: 0, errors: [] })
+		expect(service.status()).toMatchObject({ total: 64, completed: 64, saved: 64, skipped: 0, errors: [] })
 		repo.savePoster(MOVIES[0].id, 'custom', Buffer.from('custom'))
 		service.startSync(false)
 		await done(service)
-		expect(service.status()).toMatchObject({ saved: 0, skipped: 38 })
+		expect(service.status()).toMatchObject({ saved: 0, skipped: 64 })
 		service.startSync(true)
 		await done(service)
-		expect(service.status()).toMatchObject({ saved: 37, skipped: 1 })
-		expect(deps.fetchPoster).toHaveBeenCalledTimes(75)
+		expect(service.status()).toMatchObject({ saved: 63, skipped: 1 })
+		expect(deps.fetchPoster).toHaveBeenCalledTimes(127)
 		expect(service.listMovies()[0].poster).toMatchObject({ source: 'custom', hasAutomatic: true })
 		service.useAutomatic(MOVIES[0].id)
 		expect(service.listMovies()[0].poster?.source).toBe('tmdb')
@@ -145,7 +145,7 @@ describe('poster synchronization and local persistence', () => {
 		service.saveCredential(key)
 		service.startSync(true)
 		await done(service)
-		expect(service.status()).toMatchObject({ completed: 1, total: 38, saved: 0, errors: [{ title: 'Iron Man', message: '인증 실패' }] })
+		expect(service.status()).toMatchObject({ completed: 1, total: 64, saved: 0, errors: [{ title: 'Iron Man', message: '인증 실패' }] })
 		expect(repo.getPoster(MOVIES[0].id)?.dataUrl).toContain(jpeg.toString('base64'))
 	})
 	it('continues on missing poster and preserves previously saved images when cancelled', async () => {

@@ -32,7 +32,7 @@ test('the sky pans and zooms without accidental movie navigation', async () => {
 			for (const [horizontal, vertical] of [
 				[0.45, 0.6],
 				[0.55, 0.45],
-				[0.35, 0.65],
+				[0.35, 0.64],
 			]) {
 				const point = { x: bounds.left + bounds.width * horizontal, y: bounds.top + bounds.height * vertical }
 				if (!document.elementFromPoint(point.x, point.y)?.closest('a, button')) return point
@@ -87,7 +87,7 @@ test('the sky pans and zooms without accidental movie navigation', async () => {
 		await page.emulateMedia({ reducedMotion: 'reduce' })
 		const viewport = page.getByTestId('universe-viewport')
 		await viewport.scrollIntoViewIfNeeded()
-		await expect(page.getByTestId('movie-star')).toHaveCount(38)
+		await expect(page.getByTestId('movie-star')).toHaveCount(64)
 		const blank = await blankSky(viewport)
 		const beforePan = await camera(viewport)
 		const pageScroll = await page.locator('.main-scroll').evaluate(element => element.scrollTop)
@@ -119,7 +119,7 @@ test('the sky pans and zooms without accidental movie navigation', async () => {
 
 		await page.locator('[data-testid="phase-token"][data-phase="1"]').click()
 		await viewport.scrollIntoViewIfNeeded()
-		await expect(page.getByTestId('movie-star')).toHaveCount(38)
+		await expect(page.getByTestId('movie-star')).toHaveCount(64)
 		const ironMan = page.locator('[data-testid="movie-star"][data-movie-id="mcu-001"]')
 		await expect.poll(() => visibleCenter(ironMan, viewport)).toBe(true)
 		// Place a star inside the keyboard-reveal margin. Pointer focus must not
@@ -181,7 +181,7 @@ test('the sky pans and zooms without accidental movie navigation', async () => {
 		await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(760, 600))
 		await page.locator('[data-testid="phase-token"][data-phase="3"]').click()
 		await viewport.scrollIntoViewIfNeeded()
-		await expect(page.getByTestId('movie-star')).toHaveCount(38)
+		await expect(page.getByTestId('movie-star')).toHaveCount(64)
 		for (const number of [13, 17, 23]) {
 			const star = page.locator(`[data-testid="movie-star"][data-movie-id="mcu-${number.toString().padStart(3, '0')}"]`)
 			await expect.poll(() => visibleCenter(star, viewport)).toBe(true)

@@ -1,4 +1,4 @@
-import { CATALOG_VERSION, MOVIES } from './catalog'
+import { CATALOG_VERSION, CATALOG } from './catalog'
 import type { AppErrorCode, BackupData, CreateWatchEntryInput, UpdateWatchEntryInput, WatchEntry } from './types'
 
 export class DomainError extends Error {
@@ -11,7 +11,7 @@ export class DomainError extends Error {
 	}
 }
 
-const movieIds = new Set(MOVIES.map(movie => movie.id))
+const movieIds = new Set(CATALOG.map(movie => movie.id))
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const invalidBackupMessage = '지원하지 않거나 손상된 백업 파일입니다. 기존 기록은 변경되지 않았습니다.'
 export const MAX_BACKUP_BYTES = 10 * 1024 * 1024
@@ -64,7 +64,7 @@ function review(value: unknown, trim: boolean): string {
 }
 
 function movieId(value: unknown): string {
-	if (typeof value !== 'string' || !movieIds.has(value)) throw new DomainError('INVALID_INPUT', '등록된 영화를 선택해 주세요.')
+	if (typeof value !== 'string' || !movieIds.has(value)) throw new DomainError('INVALID_INPUT', '등록된 작품을 선택해 주세요.')
 	return value
 }
 

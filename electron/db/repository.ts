@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { CATALOG_VERSION, MOVIES } from '../../src/shared/catalog'
+import { CATALOG_VERSION, CATALOG } from '../../src/shared/catalog'
 import type { BackupData, Movie, WatchEntry } from '../../src/shared/types'
 import { DomainError, validateBackup, validateCreateEntry, validateEntryId, validateUpdateEntry } from '../../src/shared/validation'
 
@@ -18,7 +18,7 @@ export class MarathonRepository {
 		this.db = new DatabaseSync(filename)
 		try {
 			const version = Number(this.db.prepare('PRAGMA user_version').get()?.user_version)
-			if (version > 2) throw new DomainError('STORAGE_ERROR', '더 새로운 앱에서 만든 데이터입니다. 앱을 업데이트해 주세요.')
+			if (version > 3) throw new DomainError('STORAGE_ERROR', '더 새로운 앱에서 만든 데이터입니다. 앱을 업데이트해 주세요.')
 			this.db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;')
 			this.transaction(() => {
 				if (version === 0) {
@@ -53,11 +53,22 @@ export class MarathonRepository {
           CREATE TABLE private_settings (name TEXT PRIMARY KEY, encrypted_value BLOB NOT NULL);
           PRAGMA user_version = 2;
         `)
-				const seed = this.db.prepare(`INSERT INTO movies (id,title_en,title_ko,release_year,phase,saga,release_order)
-          VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title_en=excluded.title_en,
+				if (version < 3)
+					this.db.exec(`
+          ALTER TABLE movies ADD COLUMN media_type TEXT NOT NULL DEFAULT 'movie' CHECK(media_type IN ('movie','series','special'));
+          ALTER TABLE movies ADD COLUMN series_title TEXT;
+          ALTER TABLE movies ADD COLUMN series_start_year INTEGER;
+          ALTER TABLE movies ADD COLUMN season_number INTEGER CHECK(season_number IS NULL OR season_number > 0);
+          ALTER TABLE movies ADD COLUMN release_status TEXT NOT NULL DEFAULT 'released' CHECK(release_status IN ('released','airing'));
+          PRAGMA user_version = 3;
+        `)
+				const seed = this.db.prepare(`INSERT INTO movies (id,title_en,title_ko,release_year,phase,saga,release_order,media_type,series_title,series_start_year,season_number,release_status)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title_en=excluded.title_en,
           title_ko=excluded.title_ko,release_year=excluded.release_year,phase=excluded.phase,
-          saga=excluded.saga,release_order=excluded.release_order`)
-				for (const movie of MOVIES) seed.run(movie.id, movie.titleEn, movie.titleKo, movie.releaseYear, movie.phase, movie.saga, movie.releaseOrder)
+          saga=excluded.saga,release_order=excluded.release_order,media_type=excluded.media_type,
+          series_title=excluded.series_title,series_start_year=excluded.series_start_year,
+          season_number=excluded.season_number,release_status=excluded.release_status`)
+				for (const movie of CATALOG) seed.run(movie.id, movie.titleEn, movie.titleKo, movie.releaseYear, movie.phase, movie.saga, movie.releaseOrder, movie.mediaType, movie.seriesTitle, movie.seriesStartYear, movie.seasonNumber, movie.releaseStatus)
 			})
 			if (this.db.prepare('PRAGMA quick_check').get()?.quick_check !== 'ok' || this.db.prepare('PRAGMA foreign_key_check').all().length) {
 				throw new DomainError('STORAGE_ERROR', '데이터 무결성 검사에 실패했습니다. 기존 데이터는 초기화하지 않습니다.')
@@ -84,7 +95,9 @@ export class MarathonRepository {
 		return this.db
 			.prepare(
 				`SELECT id, title_en AS titleEn, title_ko AS titleKo, release_year AS releaseYear,
-      phase, saga, release_order AS releaseOrder FROM movies ORDER BY release_order ASC`
+      phase, saga, release_order AS releaseOrder, media_type AS mediaType,
+      series_title AS seriesTitle, series_start_year AS seriesStartYear,
+      season_number AS seasonNumber, release_status AS releaseStatus FROM movies ORDER BY release_order ASC`
 			)
 			.all() as unknown as Movie[]
 	}

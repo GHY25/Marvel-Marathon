@@ -15,7 +15,7 @@ import '../styles/CosmicJourney.css'
 
 const navigation = [
 	{ path: '/dashboard', label: '나의 우주', Icon: Orbit },
-	{ path: '/movies', label: '영화 목록', Icon: Film },
+	{ path: '/movies', label: '작품 목록', Icon: Film },
 	{ path: '/diary', label: '감상 일기', Icon: BookOpen },
 	{ path: '/ranking', label: '나의 랭킹', Icon: Trophy },
 	{ path: '/statistics', label: '통계', Icon: BarChart3 },
@@ -49,7 +49,7 @@ function AppShell() {
 						<NavLink key={path} to={path} className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
 							<Icon size={18} strokeWidth={1.7} />
 							<span>{label}</span>
-							{path === '/movies' && <span className="nav-count">{data.movies.length || 38}</span>}
+							{path === '/movies' && <span className="nav-count">{data.movies.length}</span>}
 						</NavLink>
 					))}
 				</nav>
@@ -60,7 +60,7 @@ function AppShell() {
 					</div>
 					<Progress value={stats.progress} label="사이드바 정주행 진행률" />
 					<p>
-						{stats.watchedMovies} / {data.movies.length || 38}개의 별이 빛나는 중
+						{stats.watchedMovies} / {data.movies.length}개의 별이 빛나는 중
 					</p>
 				</div>
 				<div className="sidebar-bottom">
@@ -94,7 +94,7 @@ function AppShell() {
 						{data.loading ? (
 							<div className="loading-state" role="status">
 								<LoaderCircle className="spinner" size={30} />
-								<h2>나의 영화 기록을 불러오고 있어요.</h2>
+								<h2>나의 감상 기록을 불러오고 있어요.</h2>
 							</div>
 						) : data.error ? (
 							<EmptyState title="기록을 불러오지 못했어요." description={data.error}>

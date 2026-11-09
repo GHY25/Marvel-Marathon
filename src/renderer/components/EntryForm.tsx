@@ -30,6 +30,7 @@ export default function EntryForm({ movie, entry, data, onClose }: { movie: Movi
 	return (
 		<Modal title={entry ? '감상 기록 수정' : '감상 기록 추가'} onClose={onClose} busy={busy}>
 			<p className="form-movie-title">{movie.titleEn}</p>
+			{movie.mediaType === 'series' && <p className="form-hint">시즌 {movie.seasonNumber} 전체의 감상을 기록합니다. 재관람도 별도의 기록으로 남길 수 있어요.</p>}
 			<form onSubmit={save}>
 				<label className="field-label" htmlFor="watch-date">
 					시청 날짜

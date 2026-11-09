@@ -1,7 +1,8 @@
-import type { Phase } from '../../../shared/types'
+import type { Movie, Phase } from '../../../shared/types'
+import { CATALOG } from '../../../shared/catalog'
 
 export const WORLD_WIDTH = 2400
-export const WORLD_HEIGHT = 1600
+export const WORLD_HEIGHT = 2000
 
 export type StarPoint = {
 	x: number
@@ -23,6 +24,31 @@ export type Constellation = {
 	points: StarPoint[]
 	edges: (readonly [number, number])[]
 	sourceUrl: string
+}
+
+/** Keep film positions intact; Disney+ seasons form a nearby trail below each pattern.
+ * Resolve positions from the full catalog so filtering never moves an existing star. */
+export function layoutConstellation(base: Constellation, visible: readonly Movie[]) {
+	const all = CATALOG.filter(title => title.phase === base.phase)
+	const points = [...base.points]
+	const edges = [...base.edges]
+	const columns = base.width >= 500 ? 4 : 3
+	for (let i = base.points.length; i < all.length; i++) {
+		const offset = i - base.points.length
+		points.push({ x: (((offset % columns) + 1) * base.width) / (columns + 1) + Math.sin(offset * 2) * 14, y: base.height + 85 + Math.floor(offset / columns) * 100, size: all[i].mediaType === 'special' ? 7 : 5.5, variant: all[i].mediaType === 'special' ? 'diamond' : 'round' })
+		if (offset > 0) edges.push([i - 1, i])
+	}
+	const height = all.length > base.points.length ? Math.max(...points.map(point => point.y)) + 45 : base.height
+	const indexes = visible.map(title => all.findIndex(item => item.id === title.id))
+	return {
+		points: indexes.map(index => points[index]),
+		edges: edges.flatMap(([from, to]) => {
+			const a = indexes.indexOf(from),
+				b = indexes.indexOf(to)
+			return a < 0 || b < 0 ? [] : [[a, b] as const]
+		}),
+		height,
+	}
 }
 
 const MUSEUM_GUIDE = 'https://smv.org/documents/58/Constellation_Viewer_ENG_SPAN.pdf'

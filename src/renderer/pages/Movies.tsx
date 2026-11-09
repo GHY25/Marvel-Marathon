@@ -8,13 +8,16 @@ import type { MarathonData } from '../hooks/useMarathonData'
 import { EmptyState, Modal, MovieCover, PageHeading, Rating, SectionTitle, WatchedBadge } from '../components/Common'
 import EntryForm from '../components/EntryForm'
 import { PosterPicker } from '../components/PosterControls'
+import { MediaFilter } from '../components/MediaFilter'
+import { mediaLabel, type MediaFilter as Filter } from '../../shared/media'
 
 export function Movies({ data }: { data: MarathonData }) {
 	const [search, setSearch] = useSearchParams()
 	const query = search.get('q') ?? ''
 	const phase = search.get('phase') ?? 'all'
 	const status = search.get('status') ?? 'all'
-	const filtered = filterMovies(data.movies, data.entries, { query, phase: phase === 'all' ? 'all' : Number(phase), status: status as MovieFilters['status'] })
+	const type = (['movie', 'series', 'special'].includes(search.get('type') ?? '') ? search.get('type') : 'all') as Filter
+	const filtered = filterMovies(data.movies, data.entries, { query, mediaType: type, phase: phase === 'all' ? 'all' : Number(phase), status: status as MovieFilters['status'] })
 	function filter(key: string, value: string) {
 		setSearch(
 			current => {
@@ -28,11 +31,13 @@ export function Movies({ data }: { data: MarathonData }) {
 	}
 	return (
 		<>
-			<PageHeading eyebrow="THE MARATHON COLLECTION" title="38편의 영화, 하나의 우주" description="영화 한 편을 감상할 때마다, 나의 우주에 별 하나가 켜집니다." />
+			<PageHeading eyebrow="THE MARATHON COLLECTION" title="영화와 시리즈, 하나의 우주" description="영화 한 편, 시리즈 한 시즌, 스페셜 한 편이 나의 우주에서 하나의 별이 됩니다." />
+			<MediaFilter value={type} onChange={value => filter('type', value)} titles={data.movies} />
+			<p className="footnote">영화는 개봉순, 디즈니+ 작품은 시즌 공개순으로 정렬됩니다. 시리즈의 각 시즌은 별도로 기록해요.</p>
 			<div className="collection-tools">
 				<label className="search-field">
 					<Search size={18} />
-					<input aria-label="영화 검색" placeholder="영화 제목으로 검색" value={query} onChange={event => filter('q', event.target.value)} />
+					<input aria-label="작품 검색" placeholder="영화·시리즈 제목으로 검색" value={query} onChange={event => filter('q', event.target.value)} />
 				</label>
 				<div className="select-field">
 					<SlidersHorizontal size={15} />
@@ -63,7 +68,7 @@ export function Movies({ data }: { data: MarathonData }) {
 							<Link className="movie-card" key={movie.id} to={`/movies/${movie.id}`}>
 								<div className="movie-art">
 									<MovieCover movie={movie} />
-									<span className="movie-order">#{String(movie.releaseOrder).padStart(2, '0')}</span>
+									<span className="movie-order">{movie.mediaType === 'movie' ? `#${String(movie.releaseOrder).padStart(2, '0')}` : movie.mediaType === 'series' ? `SEASON ${movie.seasonNumber}` : 'SPECIAL'}</span>
 									<WatchedBadge count={entries.length} />
 								</div>
 								<div className="movie-card-body">
@@ -75,6 +80,10 @@ export function Movies({ data }: { data: MarathonData }) {
 										<Rating ticks={getCurrentRating(movie.id, data.entries)} />
 									</div>
 									<h3 title={movie.titleEn}>{movie.titleEn}</h3>
+									<span className="media-caption">
+										{mediaLabel(movie)}
+										{movie.releaseStatus === 'airing' ? ' · 공개 중' : ''}
+									</span>
 									<p>{entries.length ? `${entries.length}회 감상${entries.length > 1 ? ' · 재관람' : ''}` : '아직 만나지 않은 이야기'}</p>
 								</div>
 							</Link>
@@ -82,7 +91,7 @@ export function Movies({ data }: { data: MarathonData }) {
 					})}
 				</div>
 			) : (
-				<EmptyState title="조건에 맞는 영화가 없습니다." description="검색어나 필터를 바꿔 다시 찾아보세요.">
+				<EmptyState title="조건에 맞는 작품이 없습니다." description="검색어나 필터를 바꿔 다시 찾아보세요.">
 					<button type="button" className="button secondary" onClick={() => setSearch({})}>
 						필터 초기화
 					</button>
@@ -101,9 +110,9 @@ export function MovieDetail({ data }: { data: MarathonData }) {
 	const [error, setError] = useState('')
 	if (!movie)
 		return (
-			<EmptyState title="영화를 찾을 수 없습니다." description="영화 목록에서 다시 선택해 주세요.">
+			<EmptyState title="작품을 찾을 수 없습니다." description="작품 목록에서 다시 선택해 주세요.">
 				<Link className="button secondary" to="/movies">
-					영화 목록으로
+					작품 목록으로
 				</Link>
 			</EmptyState>
 		)
@@ -127,20 +136,27 @@ export function MovieDetail({ data }: { data: MarathonData }) {
 		<>
 			<Link className="back-link" to="/movies">
 				<ArrowLeft size={16} />
-				영화 목록
+				작품 목록
 			</Link>
 			<section className="movie-detail-hero">
 				<MovieCover movie={movie} />
 				<div className="detail-info">
 					<span className="eyebrow">THE MARATHON COLLECTION / {String(movie.releaseOrder).padStart(2, '0')}</span>
 					<div className="detail-tags">
+						<span>{mediaLabel(movie)}</span>
+						{movie.releaseStatus === 'airing' && <span>공개 중</span>}
 						<span>PHASE {movie.phase}</span>
 						<span>{movie.saga}</span>
 					</div>
 					<h1>{movie.titleEn}</h1>
 					<p className="detail-year">
-						{movie.releaseYear} <span>·</span> MCU 개봉 #{movie.releaseOrder}
+						{movie.releaseYear} <span>·</span> {movie.mediaType === 'movie' ? `MCU 개봉 #${movie.releaseOrder}` : 'Disney+ Original'}
 					</p>
+					{movie.mediaType === 'series' && (
+						<p className="season-note">
+							시즌 {movie.seasonNumber} 전체의 감상 날짜·별점·감상평을 기록해요. 에피소드별 진도는 따로 기록하지 않습니다.{movie.releaseStatus === 'airing' ? ' 현재 공개 중인 시즌입니다.' : ''}
+						</p>
+					)}
 					<WatchedBadge count={entries.length} />
 					<div className="detail-numbers">
 						<div>
@@ -173,7 +189,7 @@ export function MovieDetail({ data }: { data: MarathonData }) {
 				<Sparkles size={20} />
 				<div>
 					<strong>{entries.length ? '나의 우주에서 빛나는 별' : '아직 빛을 기다리는 별'}</strong>
-					<span>{entries.length ? `Phase ${movie.phase} 별자리에 이 영화의 별이 켜졌어요. 재관람 기록도 계속 쌓을 수 있어요.` : `첫 감상 기록을 남기면 Phase ${movie.phase} 별자리에 별 하나가 켜져요. 별점은 없어도 괜찮아요.`}</span>
+					<span>{entries.length ? `Phase ${movie.phase} 별자리에 이 작품의 별이 켜졌어요. 재관람 기록도 계속 쌓을 수 있어요.` : `첫 감상 기록을 남기면 Phase ${movie.phase} 별자리에 별 하나가 켜져요. 별점은 없어도 괜찮아요.`}</span>
 				</div>
 				<span className="cosmic-detail-link">
 					나의 우주 <ArrowUpRight size={16} />
@@ -194,7 +210,7 @@ export function MovieDetail({ data }: { data: MarathonData }) {
 				<SectionTitle title="나의 감상 기록" subtitle={`총 ${entries.length}번의 감상${entries.length > 1 ? ` · ${entries.length - 1}번의 재관람` : ''}`} />
 				{entries.length === 0 ? (
 					<div className="panel">
-						<EmptyState title="이 영화와의 첫 만남을 남겨보세요." description="날짜만 남겨도, 긴 감상을 적어도 좋아요.">
+						<EmptyState title="이 작품과의 첫 만남을 남겨보세요." description="날짜만 남겨도, 긴 감상을 적어도 좋아요.">
 							<button type="button" className="button secondary" onClick={() => setForm('new')}>
 								<Plus size={16} />첫 감상 기록 남기기
 							</button>

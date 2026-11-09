@@ -2,6 +2,7 @@ import { test, expect, _electron as electron, type ElectronApplication, type Pag
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { CATALOG } from '../../src/shared/catalog'
 
 test('a personal universe follows real watch history, and both themes survive restart', async () => {
 	const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'marathon-universe-'))
@@ -14,7 +15,7 @@ test('a personal universe follows real watch history, and both themes survive re
 	const rendererErrors: string[] = []
 	const routeHeadings: Record<string, string> = {
 		'/dashboard': '나만의 MCU 정주행 기록',
-		'/movies': '38편의 영화, 하나의 우주',
+		'/movies': '영화와 시리즈, 하나의 우주',
 		'/movies/mcu-001': 'Iron Man',
 		'/diary': '감상 일기',
 		'/ranking': '나의 랭킹',
@@ -48,9 +49,9 @@ test('a personal universe follows real watch history, and both themes survive re
 		}, movieIds)
 	}
 	async function assertLitStars(count: number) {
-		await expect(page.getByTestId('movie-star')).toHaveCount(38)
+		await expect(page.getByTestId('movie-star')).toHaveCount(64)
 		await expect(page.locator('[data-testid="movie-star"][data-watched="true"]')).toHaveCount(count)
-		await expect(page.locator('[data-testid="movie-star"][data-watched="false"]')).toHaveCount(38 - count)
+		await expect(page.locator('[data-testid="movie-star"][data-watched="false"]')).toHaveCount(64 - count)
 	}
 	async function contrast(foregroundSelector: string, backgroundSelector: string) {
 		return page.evaluate(
@@ -98,7 +99,7 @@ test('a personal universe follows real watch history, and both themes survive re
 		await phaseOne.click()
 		await expect(phaseOne).toHaveAttribute('aria-pressed', 'true')
 		// A Phase now moves the camera through one continuous world; all stars remain.
-		await expect(page.getByTestId('movie-star')).toHaveCount(38)
+		await expect(page.getByTestId('movie-star')).toHaveCount(64)
 		await page.getByRole('button', { name: '전체 우주 보기', exact: true }).click()
 		await assertLitStars(0)
 
@@ -157,9 +158,9 @@ test('a personal universe follows real watch history, and both themes survive re
 		await navigate('/dashboard')
 		await assertLitStars(6)
 		await expect(phaseOne).toHaveAttribute('data-complete', 'true')
-		await createRecords(Array.from({ length: 32 }, (_, index) => `mcu-${String(index + 7).padStart(3, '0')}`))
+		await createRecords(CATALOG.slice(6).map(title => title.id))
 		await refreshUniverse()
-		await assertLitStars(38)
+		await assertLitStars(64)
 		await expect(page.locator('[data-testid="phase-token"][data-complete="true"]')).toHaveCount(6)
 		await page.getByRole('button', { name: '전체 우주 보기', exact: true }).click()
 		await page.screenshot({ path: 'test-results/universe-complete.png', fullPage: true, animations: 'disabled' })

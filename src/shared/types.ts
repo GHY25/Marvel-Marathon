@@ -1,5 +1,6 @@
 export type Phase = 1 | 2 | 3 | 4 | 5 | 6
 export type Saga = 'Infinity Saga' | 'Multiverse Saga'
+export type MediaType = 'movie' | 'series' | 'special'
 
 export interface Movie {
 	id: string
@@ -9,6 +10,11 @@ export interface Movie {
 	phase: Phase
 	saga: Saga
 	releaseOrder: number
+	mediaType: MediaType
+	seriesTitle: string | null
+	seriesStartYear: number | null
+	seasonNumber: number | null
+	releaseStatus: 'released' | 'airing'
 	poster?: { dataUrl: string; source: 'tmdb' | 'custom'; hasAutomatic: boolean }
 }
 
@@ -112,6 +118,7 @@ export interface Statistics {
 }
 
 export interface MovieFilters {
+	mediaType?: MediaType | 'all'
 	query?: string
 	phase?: number | 'all'
 	status?: 'all' | 'watched' | 'unwatched'

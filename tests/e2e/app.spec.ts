@@ -32,7 +32,7 @@ test('real Electron: CRUD, rewatch ratings, filters, persistence, backup and res
 	async function navigate(route: string) {
 		const headings: Record<string, string> = {
 			'/dashboard': '나만의 MCU 정주행 기록',
-			'/movies': '38편의 영화, 하나의 우주',
+			'/movies': '영화와 시리즈, 하나의 우주',
 			'/diary': '감상 일기',
 			'/ranking': '나의 랭킹',
 			'/statistics': '숫자로 보는 나의 취향',
@@ -82,17 +82,17 @@ test('real Electron: CRUD, rewatch ratings, filters, persistence, backup and res
 		await page.screenshot({ path: 'test-results/dashboard-empty.png', fullPage: true })
 		await page
 			.locator('nav')
-			.getByRole('link', { name: /영화 목록/ })
+			.getByRole('link', { name: /작품 목록/ })
 			.click()
-		await expect(page.locator('.movie-card')).toHaveCount(38)
+		await expect(page.locator('.movie-card')).toHaveCount(64)
 		await page.getByRole('button', { name: 'Phase 1', exact: true }).click()
 		await expect(page.locator('.movie-card')).toHaveCount(6)
-		await page.getByLabel('영화 검색', { exact: true }).fill('iron')
+		await page.getByLabel('작품 검색', { exact: true }).fill('iron')
 		await expect(page.locator('.movie-card')).toHaveCount(2)
 		await page.getByLabel('감상 상태', { exact: true }).selectOption('watched')
-		await expect(page.getByText('조건에 맞는 영화가 없습니다.', { exact: true })).toBeVisible()
+		await expect(page.getByText('조건에 맞는 작품이 없습니다.', { exact: true })).toBeVisible()
 		await page.getByRole('button', { name: '필터 초기화' }).click()
-		await expect(page.locator('.movie-card')).toHaveCount(38)
+		await expect(page.locator('.movie-card')).toHaveCount(64)
 		await page.screenshot({ path: 'test-results/movies.png', fullPage: true })
 		await page.locator('.movie-card').first().click()
 		await page.getByRole('button', { name: '감상 기록 추가', exact: true }).click()

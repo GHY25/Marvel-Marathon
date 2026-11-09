@@ -3,7 +3,8 @@ import { ArrowUpRight, Check, Hand, Maximize, Minimize, Minus, Orbit, Plus, Spar
 import { Link } from 'react-router-dom'
 import type { Movie, Phase, WatchEntry } from '../../shared/types'
 import { useUniverseCamera } from '../hooks/useUniverseCamera'
-import { CONSTELLATIONS, WORLD_HEIGHT, WORLD_WIDTH } from './universe/constellations'
+import { CONSTELLATIONS, layoutConstellation, WORLD_HEIGHT, WORLD_WIDTH } from './universe/constellations'
+import { mediaLabel } from '../../shared/media'
 import '../../styles/Universe.css'
 
 function phaseStyle(color: string): CSSProperties {
@@ -73,8 +74,9 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 	const phases = CONSTELLATIONS.map(constellation => {
 		const phaseMovies = movies.filter(movie => movie.phase === constellation.phase).sort((a, b) => a.releaseOrder - b.releaseOrder)
 		const count = phaseMovies.filter(movie => watchedIds.has(movie.id)).length
-		return { ...constellation, movies: phaseMovies, watched: count, complete: phaseMovies.length > 0 && count === phaseMovies.length }
+		return { ...constellation, ...layoutConstellation(constellation, phaseMovies), movies: phaseMovies, watched: count, complete: phaseMovies.length > 0 && count === phaseMovies.length }
 	})
+	const availablePhases = phases.filter(phase => phase.movies.length > 0).length
 	const completeCount = phases.filter(phase => phase.complete).length
 	const complete = movies.length > 0 && watched === movies.length
 	const suggestedMovies = selectedPhase === 'all' ? movies : movies.filter(movie => movie.phase === selectedPhase)
@@ -101,7 +103,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 						<Orbit size={13} /> THE INFINITY COLLECTION
 					</p>
 					<h2 id="universe-title">{complete ? '당신의 우주가 완성됐어요.' : '이야기를 모으고, 우주를 탐험하세요.'}</h2>
-					<p className="universe-intro">잡고 움직이면 또 다른 별자리가 나타나요. 감상한 영화는 나의 우주에서 빛나는 별이 됩니다.</p>
+					<p className="universe-intro">잡고 움직이면 또 다른 별자리가 나타나요. 감상한 작품은 나의 우주에서 빛나는 별이 됩니다.</p>
 				</div>
 				<div className="universe-counter" aria-label={`전체 ${movies.length}개 중 ${watched}개의 별을 밝혔어요`}>
 					<Sparkles size={17} />
@@ -240,7 +242,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 					</div>
 					<div className="universe-preview-film">
 						<span>
-							PHASE {preview.phase} <i /> {preview.releaseYear} <i /> {watchedIds.has(preview.id) ? '나의 우주에서 빛나는 이야기' : '다음으로 밝혀볼 별'}
+							PHASE {preview.phase} <i /> {mediaLabel(preview)} <i /> {preview.releaseYear} <i /> {watchedIds.has(preview.id) ? '나의 우주에서 빛나는 이야기' : '다음으로 밝혀볼 별'}
 						</span>
 						<strong>{preview.titleEn}</strong>
 					</div>
@@ -253,12 +255,12 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 			<div className="universe-collection-heading">
 				<h3>여섯 개의 빛을 모으는 여정</h3>
 				<p aria-live="polite" aria-atomic="true" data-testid="universe-status">
-					{complete ? '모든 별자리 완성 · 6개의 빛을 모두 모았어요!' : `${completeCount} / 6 수집 · Phase를 누르면 해당 별자리로 이동해요.`}
+					{complete ? `모든 별자리 완성 · ${availablePhases}개의 빛을 모두 모았어요!` : `${completeCount} / ${availablePhases} 수집 · Phase를 누르면 해당 별자리로 이동해요.`}
 				</p>
 			</div>
 			<div className="universe-tokens" aria-label="페이즈별 빛 수집과 별자리 이동">
 				{phases.map(phase => (
-					<button type="button" key={phase.phase} className={`universe-token${phase.complete ? ' universe-token-complete' : ''}`} data-testid="phase-token" data-phase={phase.phase} data-complete={phase.complete} aria-pressed={selectedPhase === phase.phase} aria-label={`Phase ${phase.phase}, ${phase.skyName}, ${phase.name}, ${phase.watched}/${phase.movies.length}편, ${phase.complete ? '수집 완료' : '수집 중'}`} onClick={() => visitPhase(phase)} style={phaseStyle(phase.color)}>
+					<button type="button" key={phase.phase} disabled={!phase.movies.length} className={`universe-token${phase.complete ? ' universe-token-complete' : ''}`} data-testid="phase-token" data-phase={phase.phase} data-complete={phase.complete} aria-pressed={selectedPhase === phase.phase} aria-label={`Phase ${phase.phase}, ${phase.skyName}, ${phase.name}, ${phase.watched}/${phase.movies.length}편, ${phase.complete ? '수집 완료' : '수집 중'}`} onClick={() => visitPhase(phase)} style={phaseStyle(phase.color)}>
 						<span className="universe-token-gem" aria-hidden="true">
 							<span />
 							<i />
@@ -287,7 +289,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 					</button>
 				))}
 			</div>
-			<p className="universe-reference-note">실제 별자리의 형태를 영화 수에 맞게 재구성한 나만의 감상 지도입니다.</p>
+			<p className="universe-reference-note">실제 별자리에서 영감을 받은 영화의 별들 아래로, 시리즈와 스페셜의 새로운 별길이 이어집니다.</p>
 		</section>
 	)
 }

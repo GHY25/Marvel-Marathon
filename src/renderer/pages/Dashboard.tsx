@@ -6,16 +6,21 @@ import type { MarathonData } from '../hooks/useMarathonData'
 import { EmptyState, MovieCover, PageHeading, Rating, SectionTitle } from '../components/Common'
 import { PhaseProgress, StatisticsCards } from '../components/StatisticsCards'
 import UniverseMap from '../components/UniverseMap'
+import { useState } from 'react'
+import { MediaFilter } from '../components/MediaFilter'
+import { filterMedia, mediaLabel, type MediaFilter as Filter } from '../../shared/media'
 
 export default function Dashboard({ data }: { data: MarathonData }) {
-	const stats = buildStatistics(data.movies, data.entries)
+	const [type, setType] = useState<Filter>('all')
+	const titles = filterMedia(data.movies, type)
+	const stats = buildStatistics(titles, data.entries)
 	const next = stats.nextMovie
 	return (
 		<>
 			<PageHeading
 				eyebrow="YOUR PERSONAL CINEMATIC UNIVERSE"
 				title="나만의 MCU 정주행 기록"
-				description="한 편의 영화가 하나의 별로. 여섯 개의 별자리를 모아 나만의 우주를 완성하세요."
+				description="영화 한 편, 시리즈 한 시즌이 하나의 별로. 여섯 개의 별자리를 모아 나만의 우주를 완성하세요."
 				action={
 					<Link className="button secondary" to="/movies">
 						<Plus size={16} />
@@ -23,7 +28,8 @@ export default function Dashboard({ data }: { data: MarathonData }) {
 					</Link>
 				}
 			/>
-			<UniverseMap movies={data.movies} entries={data.entries} />
+			<MediaFilter value={type} onChange={setType} titles={data.movies} />
+			<UniverseMap key={type} movies={titles} entries={data.entries} />
 			{next ? (
 				<Link className="cosmic-next" to={`/movies/${next.id}`}>
 					<MovieCover movie={next} compact />
@@ -33,7 +39,7 @@ export default function Dashboard({ data }: { data: MarathonData }) {
 						</span>
 						<h2>{next.titleEn}</h2>
 						<p>
-							{next.releaseYear} · Phase {next.phase} · 개봉 순서 #{String(next.releaseOrder).padStart(2, '0')}
+							{next.releaseYear} · Phase {next.phase} · {mediaLabel(next)}
 						</p>
 					</div>
 					<span className="cosmic-next-action">

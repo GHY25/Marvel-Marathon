@@ -4,7 +4,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { DatabaseSync } from 'node:sqlite'
 import sharp from 'sharp'
-import { MOVIES } from '../../src/shared/catalog'
+import { CATALOG as MOVIES } from '../../src/shared/catalog'
 
 test('real Electron: TMDB transport fixture, secure key, custom posters, validation and offline restart', async () => {
 	test.setTimeout(90_000)
@@ -54,7 +54,7 @@ test('real Electron: TMDB transport fixture, secure key, custom posters, validat
 		await page.evaluate(route => {
 			window.location.hash = route
 		}, value)
-		await expect(page.getByRole('heading', { level: 1, name: value === '/settings' ? '설정' : value === '/movies' ? '38편의 영화, 하나의 우주' : 'Iron Man', exact: true })).toBeVisible()
+		await expect(page.getByRole('heading', { level: 1, name: value === '/settings' ? '설정' : value === '/movies' ? '영화와 시리즈, 하나의 우주' : 'Iron Man', exact: true })).toBeVisible()
 	}
 	async function posters() {
 		return page.evaluate(async () => {
@@ -90,6 +90,10 @@ test('real Electron: TMDB transport fixture, secure key, custom posters, validat
 						const movie = fixture.movies.find(movie => movie.titleEn === url.searchParams.get('query'))
 						return Response.json({ results: movie ? [{ id: movie.releaseOrder, title: movie.titleEn, original_title: movie.titleEn, release_date: `${movie.releaseYear}-01-01`, poster_path: '/korean.jpg' }] : [] })
 					}
+					if (url.pathname === '/3/search/tv') {
+						const movie = fixture.movies.find(movie => movie.seriesTitle === url.searchParams.get('query') && String(movie.seriesStartYear) === url.searchParams.get('first_air_date_year'))
+						return Response.json({ results: movie ? [{ id: movie.seriesTitle === 'What If...?' ? 91363 : movie.releaseOrder, name: movie.seriesTitle, original_name: movie.seriesTitle, first_air_date: `${movie.seriesStartYear}-01-01` }] : [] })
+					}
 					if (url.hostname === 'api.themoviedb.org' && url.pathname.endsWith('/images') && url.searchParams.get('language') === 'en' && url.searchParams.get('include_image_language') === 'en,null')
 						return Response.json({
 							posters: [
@@ -111,12 +115,12 @@ test('real Electron: TMDB transport fixture, secure key, custom posters, validat
 		await expect(page.getByRole('button', { name: '포스터 자동 가져오기' })).toBeEnabled()
 		await page.getByLabel('저장된 포스터도 영어로 새로 받기').check()
 		await page.getByRole('button', { name: '포스터 자동 가져오기' }).click()
-		await expect(page.getByText('가져오기 완료 · 38편 저장 · 0편 유지 · 0편 실패', { exact: true })).toBeVisible()
-		await expect.poll(async () => (await posters()).filter(Boolean).length).toBe(38)
+		await expect(page.getByText('가져오기 완료 · 64편 저장 · 0편 유지 · 0편 실패', { exact: true })).toBeVisible()
+		await expect.poll(async () => (await posters()).filter(Boolean).length).toBe(64)
 		expect((await posters())[0]!.dataUrl).not.toBe(`data:image/jpeg;base64,${legacyPoster.toString('base64')}`)
 		await page.screenshot({ path: 'test-results/poster-settings-dark.png', fullPage: true })
 		await route('/movies')
-		await expect(page.locator('.movie-card .has-poster img')).toHaveCount(38)
+		await expect(page.locator('.movie-card .has-poster img')).toHaveCount(64)
 		await expect
 			.poll(() =>
 				page
@@ -145,7 +149,7 @@ test('real Electron: TMDB transport fixture, secure key, custom posters, validat
 		await route('/settings')
 		await page.getByLabel('저장된 포스터도 영어로 새로 받기').check()
 		await page.getByRole('button', { name: '포스터 자동 가져오기' }).click()
-		await expect(page.getByText('가져오기 완료 · 37편 저장 · 1편 유지 · 0편 실패', { exact: true })).toBeVisible()
+		await expect(page.getByText('가져오기 완료 · 63편 저장 · 1편 유지 · 0편 실패', { exact: true })).toBeVisible()
 		expect((await posters())[0]!.dataUrl).toBe(custom)
 		const db = new DatabaseSync(dbFilename)
 		const encrypted = db.prepare("SELECT encrypted_value FROM private_settings WHERE name = 'tmdb'").get()!
@@ -178,18 +182,18 @@ test('real Electron: TMDB transport fixture, secure key, custom posters, validat
 		await page.getByRole('button', { name: '포스터 자동 가져오기' }).click()
 		await expect(page.getByRole('button', { name: '키 삭제', exact: true })).toBeDisabled()
 		await page.getByRole('button', { name: '가져오기 중지', exact: true }).click()
-		await expect(page.getByText(/가져오기 중지 · 0편 저장 · 1편 유지 · 0편 실패 · 37편 남음/)).toBeVisible()
+		await expect(page.getByText(/가져오기 중지 · 0편 저장 · 1편 유지 · 0편 실패 · 63편 남음/)).toBeVisible()
 		await app!.evaluate(() => {
 			globalThis.fetch = async () => {
 				throw new Error('offline')
 			}
 		})
 		await page.getByRole('button', { name: '포스터 자동 가져오기' }).click()
-		await expect(page.getByText(/가져오기 중단 · 0편 저장 · 1편 유지 · 1편 실패 · 36편 남음/)).toBeVisible()
-		expect((await posters()).filter(Boolean)).toHaveLength(38)
+		await expect(page.getByText(/가져오기 중단 · 0편 저장 · 1편 유지 · 1편 실패 · 62편 남음/)).toBeVisible()
+		expect((await posters()).filter(Boolean)).toHaveLength(64)
 		await page.getByRole('button', { name: '키 삭제', exact: true }).click()
 		await expect(page.getByRole('button', { name: '포스터 자동 가져오기' })).toBeDisabled()
-		expect((await posters()).filter(Boolean)).toHaveLength(38)
+		expect((await posters()).filter(Boolean)).toHaveLength(64)
 		await page.evaluate(() => {
 			localStorage.setItem('marvel-marathon.theme', 'light')
 		})

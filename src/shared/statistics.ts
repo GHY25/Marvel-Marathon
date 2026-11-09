@@ -54,6 +54,8 @@ export function formatAverageRating(value: number | null): string {
 }
 
 export function buildStatistics(movies: readonly Movie[], entries: readonly WatchEntry[]): Statistics {
+	const ids = new Set(movies.map(movie => movie.id))
+	entries = entries.filter(entry => ids.has(entry.movieId))
 	const ranking = buildRanking(movies, entries)
 	const watchedMovies = getWatchedMovieCount(movies, entries)
 	const watchedIds = new Set(entries.map(entry => entry.movieId))
@@ -82,6 +84,7 @@ export function filterMovies(movies: readonly Movie[], entries: readonly WatchEn
 	const watched = new Set(entries.map(entry => entry.movieId))
 	return movies
 		.filter(movie => {
+			if (filters.mediaType && filters.mediaType !== 'all' && movie.mediaType !== filters.mediaType) return false
 			if (query && !movie.titleEn.toLowerCase().includes(query) && !(movie.titleKo ?? '').toLowerCase().includes(query)) return false
 			if (filters.phase && filters.phase !== 'all' && movie.phase !== filters.phase) return false
 			if (filters.status === 'watched' && !watched.has(movie.id)) return false

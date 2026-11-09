@@ -11,7 +11,7 @@
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
-		"dev": "electron-vite dev",
+		"dev": "electron-vite dev --watch",
 		"build": "tsc -b && electron-vite build",
 		"lint": "eslint .",
 		"start": "electron-vite preview",

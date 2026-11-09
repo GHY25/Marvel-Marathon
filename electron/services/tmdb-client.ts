@@ -10,6 +10,8 @@ export class PosterFetchError extends DomainError {
 	}
 }
 
+class MissingPosterError extends PosterFetchError {}
+
 export function validateCredential(raw: unknown): string {
 	if (typeof raw !== 'string') throw new DomainError('INVALID_INPUT', 'TMDB API Key 또는 Read Access Token을 입력해 주세요.')
 	const value = raw.trim().replace(/^Bearer\s+/i, '')
@@ -32,11 +34,27 @@ const normalizeTitle = (title: string) =>
 		.replace(/[^\p{L}\p{N}]/gu, '')
 const object = (value: unknown): Record<string, unknown> => (value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {})
 
+// Verified TMDB series identity: https://www.themoviedb.org/tv/91363
+// Live search also returns unrelated shows named "What If" in 2021.
+const verifiedSeriesIds: Record<string, number> = {
+	'mcu-tv-what-if-s01': 91363,
+	'mcu-tv-what-if-s02': 91363,
+	'mcu-tv-what-if-s03': 91363,
+}
+
 export function matchMovie(raw: unknown, movie: Movie): { id: number } {
 	const results = object(raw).results
 	if (!Array.isArray(results)) throw new PosterFetchError('TMDB 영화 응답을 읽지 못했어요.')
-	const matches = results.map(object).filter(item => Number.isSafeInteger(item.id) && Number(item.id) > 0 && item.adult !== true && typeof item.release_date === 'string' && item.release_date.slice(0, 4) === String(movie.releaseYear) && [item.title, item.original_title].some(title => typeof title === 'string' && normalizeTitle(title) === normalizeTitle(movie.titleEn)))
-	if (matches.length !== 1) throw new PosterFetchError('제목과 개봉 연도가 일치하는 영화를 확정하지 못했어요. 직접 이미지를 선택할 수 있어요.')
+	const television = movie.mediaType === 'series'
+	const expectedTitle = television ? movie.seriesTitle! : movie.titleEn
+	const expectedYear = television ? movie.seriesStartYear! : movie.releaseYear
+	const verifiedId = television ? verifiedSeriesIds[movie.id] : undefined
+	const matches = results.map(object).filter(item => {
+		const date = television ? item.first_air_date : item.release_date
+		const titles = television ? [item.name, item.original_name] : [item.title, item.original_title]
+		return Number.isSafeInteger(item.id) && Number(item.id) > 0 && (verifiedId === undefined || item.id === verifiedId) && item.adult !== true && typeof date === 'string' && date.slice(0, 4) === String(expectedYear) && titles.some(title => typeof title === 'string' && normalizeTitle(title) === normalizeTitle(expectedTitle))
+	})
+	if (matches.length !== 1) throw new PosterFetchError('제목과 최초 공개 연도가 일치하는 작품을 확정하지 못했어요. 직접 이미지를 선택할 수 있어요.')
 	return { id: Number(matches[0].id) }
 }
 
@@ -56,7 +74,7 @@ export function choosePoster(raw: unknown): string {
 		})
 		.sort((a, b) => languageOrder.indexOf(a.iso_639_1 as string | null) - languageOrder.indexOf(b.iso_639_1 as string | null) || Number(b.vote_average || 0) - Number(a.vote_average || 0) || Number(b.width) - Number(a.width))
 	// A search result's default poster has no reliable language metadata and can be Korean.
-	if (!choices.length) throw new PosterFetchError('영어 또는 언어 표시 없는 포스터를 찾지 못했어요. 기존 커버는 유지됩니다.')
+	if (!choices.length) throw new MissingPosterError('영어 또는 언어 표시 없는 포스터를 찾지 못했어요. 기존 커버는 유지됩니다.')
 	return posterImageUrl(choices[0].file_path)
 }
 
@@ -103,8 +121,28 @@ export async function fetchTmdbPoster(movie: Movie, credential: string, signal: 
 			throw new PosterFetchError('TMDB 응답을 읽지 못했어요.')
 		}
 	}
-	const matched = matchMovie(await api('search/movie', { query: movie.titleEn, primary_release_year: String(movie.releaseYear), language: 'en-US', include_adult: 'false' }), movie)
-	const imageUrl = choosePoster(await api(`movie/${matched.id}/images`, { language: 'en', include_image_language: 'en,null' }))
+	const television = movie.mediaType === 'series'
+	const matched = matchMovie(
+		await api(television ? 'search/tv' : 'search/movie', {
+			query: television ? movie.seriesTitle! : movie.titleEn,
+			[television ? 'first_air_date_year' : 'primary_release_year']: String(television ? movie.seriesStartYear : movie.releaseYear),
+			language: 'en-US',
+			include_adult: 'false',
+		}),
+		movie
+	)
+	const languages = { language: 'en', include_image_language: 'en,null' }
+	let imageUrl: string
+	if (television) {
+		const images = await api(`tv/${matched.id}/season/${movie.seasonNumber}/images`, languages)
+		try {
+			imageUrl = choosePoster(images)
+		} catch (error) {
+			if (!(error instanceof MissingPosterError)) throw error
+			// Season artwork can be absent. Only fall back to language-verified series artwork.
+			imageUrl = choosePoster(await api(`tv/${matched.id}/images`, languages))
+		}
+	} else imageUrl = choosePoster(await api(`movie/${matched.id}/images`, languages))
 	// CDN receives no API credentials. Redirects are not followed.
 	return boundedRequest(imageUrl, { Accept: 'image/jpeg,image/png' }, 10 * 1024 * 1024, signal)
 }
