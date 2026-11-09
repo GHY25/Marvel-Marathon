@@ -72,4 +72,12 @@ describe('universe camera navigation', () => {
 		const moved = constrainCamera({ ...fitted, x: -4000, y: 4000 }, viewport, world)
 		expect(moved).toEqual(fitted)
 	})
+
+	it.each<CameraSize>([
+		{ width: 500, height: 420 },
+		{ width: 1500, height: 900 },
+	])('keeps the overview fitted when the window changes to %j', next => {
+		const overview = fitWorldCamera(viewport, world)
+		expect(resizeCamera(overview, viewport, next, world)).toEqual(fitWorldCamera(next, world))
+	})
 })

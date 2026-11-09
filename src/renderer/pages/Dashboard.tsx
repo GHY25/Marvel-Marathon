@@ -1,5 +1,5 @@
 import { formatDate } from '../utils/format'
-import { ArrowRight, Orbit, Plus, Sparkles } from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { buildStatistics } from '../../shared/statistics'
 import type { MarathonData } from '../hooks/useMarathonData'
@@ -8,7 +8,7 @@ import { PhaseProgress, StatisticsCards } from '../components/StatisticsCards'
 import UniverseMap from '../components/UniverseMap'
 import { useState } from 'react'
 import { MediaFilter } from '../components/MediaFilter'
-import { filterMedia, mediaLabel, type MediaFilter as Filter } from '../../shared/media'
+import { filterMedia, type MediaFilter as Filter } from '../../shared/media'
 
 export default function Dashboard({ data }: { data: MarathonData }) {
 	const [type, setType] = useState<Filter>('all')
@@ -29,35 +29,7 @@ export default function Dashboard({ data }: { data: MarathonData }) {
 				}
 			/>
 			<MediaFilter value={type} onChange={setType} titles={data.movies} />
-			<UniverseMap key={type} movies={titles} entries={data.entries} />
-			{next ? (
-				<Link className="cosmic-next" to={`/movies/${next.id}`}>
-					<MovieCover movie={next} compact />
-					<div className="cosmic-next-title">
-						<span className="eyebrow">
-							<Orbit size={13} /> YOUR NEXT STAR
-						</span>
-						<h2>{next.titleEn}</h2>
-						<p>
-							{next.releaseYear} · Phase {next.phase} · {mediaLabel(next)}
-						</p>
-					</div>
-					<span className="cosmic-next-action">
-						다음 별 만나기 <ArrowRight size={17} />
-					</span>
-				</Link>
-			) : (
-				<div className="cosmic-next cosmic-finished">
-					<Sparkles size={30} />
-					<div className="cosmic-next-title">
-						<h2>모든 별이 빛나는 나만의 밤하늘</h2>
-						<p>완성된 우주에서, 가장 좋아했던 이야기를 다시 만나보세요.</p>
-					</div>
-					<Link className="button secondary" to="/ranking">
-						나의 랭킹 돌아보기 <ArrowRight size={16} />
-					</Link>
-				</div>
-			)}
+			<UniverseMap key={type} movies={titles} entries={data.entries} nextMovie={next} />
 			<StatisticsCards stats={stats} />
 			<div className="dashboard-bottom">
 				<section className="panel">

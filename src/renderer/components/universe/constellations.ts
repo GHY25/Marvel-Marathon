@@ -3,6 +3,8 @@ import { CATALOG } from '../../../shared/catalog'
 
 export const WORLD_WIDTH = 3200
 export const WORLD_HEIGHT = 2400
+// Center the visible constellation composition, including its labels and lower stars.
+export const OVERVIEW_CENTER = { x: WORLD_WIDTH / 2, y: 1060 }
 
 export type StarPoint = {
 	x: number

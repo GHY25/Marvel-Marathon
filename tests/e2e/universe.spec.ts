@@ -162,6 +162,8 @@ test('a personal universe follows real watch history, and both themes survive re
 		await createRecords(CATALOG.slice(6).map(title => title.id))
 		await refreshUniverse()
 		await assertLitStars(64)
+		await expect(page.getByTestId('universe-next')).toHaveCount(0)
+		await expect(page.getByTestId('universe-next-complete')).toHaveAttribute('href', '#/ranking')
 		await expect(page.locator('[data-testid="phase-token"][data-complete="true"]')).toHaveCount(6)
 		await page.getByRole('button', { name: '전체 우주 보기', exact: true }).click()
 		await page.screenshot({ path: 'test-results/universe-complete.png', fullPage: true, animations: 'disabled' })

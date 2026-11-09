@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { cameraScaleLimits, constrainCamera, fitWorldCamera, focusCamera, resizeCamera, zoomCamera, type Camera, type CameraBounds, type CameraSize } from '../../shared/universe-camera'
+import { cameraScaleLimits, constrainCamera, DEFAULT_CAMERA_SCALE, fitWorldCamera, focusCamera, resizeCamera, zoomCamera, type Camera, type CameraBounds, type CameraSize } from '../../shared/universe-camera'
 
 interface Drag {
 	id: number
@@ -14,7 +14,7 @@ interface Drag {
 	moved: boolean
 }
 
-export function useUniverseCamera({ worldWidth, worldHeight }: { worldWidth: number; worldHeight: number }) {
+export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { worldWidth: number; worldHeight: number; initialCenter: { x: number; y: number } }) {
 	const viewportRef = useRef<HTMLDivElement>(null)
 	const cameraRef = useRef<Camera>({ x: 0, y: 0, scale: 1 })
 	const sizeRef = useRef<CameraSize>({ width: 0, height: 0 })
@@ -110,9 +110,8 @@ export function useUniverseCamera({ worldWidth, worldHeight }: { worldWidth: num
 			sizeRef.current = next
 			setSize(next)
 			if (!previous.width || !previous.height) {
-				const fitted = fitWorldCamera(next, world)
-				const initialScale = Math.max(fitted.scale * 1.65, (next.width / world.width) * 1.3, (next.height / world.height) * 1.3)
-				applyCamera(zoomCamera(fitted, initialScale / fitted.scale, { x: next.width / 2, y: next.height / 2 }, next, world))
+				// Every visit starts at 25%, centered on the sky.
+				applyCamera({ x: next.width / 2 - initialCenter.x * DEFAULT_CAMERA_SCALE, y: next.height / 2 - initialCenter.y * DEFAULT_CAMERA_SCALE, scale: DEFAULT_CAMERA_SCALE })
 			} else applyCamera(resizeCamera(cameraRef.current, previous, next, world))
 		}
 		const observer = new ResizeObserver(measure)
@@ -211,7 +210,7 @@ export function useUniverseCamera({ worldWidth, worldHeight }: { worldWidth: num
 			dragRef.current = null
 			stopAnimation()
 		}
-	}, [applyCamera, stopAnimation, worldWidth, worldHeight])
+	}, [applyCamera, stopAnimation, worldWidth, worldHeight, initialCenter.x, initialCenter.y])
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
 		if (event.button !== 0 || !event.isPrimary || dragRef.current || (event.target instanceof Element && event.target.closest('[data-camera-control]'))) return

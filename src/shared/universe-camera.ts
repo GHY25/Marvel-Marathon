@@ -15,6 +15,7 @@ export interface CameraBounds extends CameraSize {
 }
 
 export const CAMERA_PADDING = 48
+export const DEFAULT_CAMERA_SCALE = 0.25
 export const MAX_CAMERA_SCALE = 1.8
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -56,8 +57,9 @@ export function focusCamera(bounds: CameraBounds, viewport: CameraSize, world: C
 	return constrainCamera({ x: viewport.width / 2 - (bounds.x + bounds.width / 2) * scale, y: viewport.height / 2 - (bounds.y + bounds.height / 2) * scale, scale }, viewport, world)
 }
 
-/** Window resizing preserves the viewed world center, rather than jumping to a corner. */
+/** Keep overview fitted; otherwise preserve the user's viewed world center. */
 export function resizeCamera(camera: Camera, previous: CameraSize, next: CameraSize, world: CameraSize): Camera {
+	if (Math.abs(camera.scale - cameraScaleLimits(previous, world).min) < 0.0001) return fitWorldCamera(next, world)
 	const center = { x: (previous.width / 2 - camera.x) / camera.scale, y: (previous.height / 2 - camera.y) / camera.scale }
 	const scale = Math.max(cameraScaleLimits(next, world).min, camera.scale)
 	return constrainCamera({ x: next.width / 2 - center.x * scale, y: next.height / 2 - center.y * scale, scale }, next, world)

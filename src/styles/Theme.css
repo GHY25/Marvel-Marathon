@@ -135,8 +135,7 @@
 		border-color 0.15s,
 		transform 0.15s;
 }
-:root[data-theme] .universe-token,
-:root[data-theme] .cosmic-next {
+:root[data-theme] .universe-token {
 	transition:
 		border-color 0.2s,
 		transform 0.2s;

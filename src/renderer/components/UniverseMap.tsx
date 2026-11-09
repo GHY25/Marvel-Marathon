@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { ArrowUpRight, Check, Hand, Maximize, Minimize, Minus, Orbit, Plus, Sparkles, Star } from 'lucide-react'
+import { ArrowUpRight, Check, Hand, Maximize, Minimize, Minus, Orbit, Plus, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Movie, Phase, WatchEntry } from '../../shared/types'
 import { useUniverseCamera } from '../hooks/useUniverseCamera'
-import { CONSTELLATIONS, layoutConstellation, WORLD_HEIGHT, WORLD_WIDTH } from './universe/constellations'
+import { CONSTELLATIONS, layoutConstellation, OVERVIEW_CENTER, WORLD_HEIGHT, WORLD_WIDTH } from './universe/constellations'
+import { MovieCover } from './Common'
 import { mediaLabel } from '../../shared/media'
 import '../../styles/Universe.css'
 
@@ -11,7 +12,7 @@ function phaseStyle(color: string): CSSProperties {
 	return { '--universe-phase': color } as CSSProperties
 }
 
-export default function UniverseMap({ movies, entries }: { movies: Movie[]; entries: WatchEntry[] }) {
+export default function UniverseMap({ movies, entries, nextMovie }: { movies: Movie[]; entries: WatchEntry[]; nextMovie: Movie | null }) {
 	const [selectedPhase, setSelectedPhase] = useState<Phase | 'all'>('all')
 	const [previewId, setPreviewId] = useState<string | null>(null)
 	const atlasRef = useRef<HTMLDivElement>(null)
@@ -68,7 +69,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 			if (atlas.isConnected) setFullscreenPending(false)
 		}
 	}
-	const { viewportRef, camera, size, isDragging, minScale, maxScale, zoomBy, fitWorld, focusBounds, revealPoint, handlers } = useUniverseCamera({ worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT })
+	const { viewportRef, camera, size, isDragging, minScale, maxScale, zoomBy, fitWorld, focusBounds, revealPoint, handlers } = useUniverseCamera({ worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, initialCenter: OVERVIEW_CENTER })
 	const watchedIds = new Set(entries.map(entry => entry.movieId))
 	const watched = movies.filter(movie => watchedIds.has(movie.id)).length
 	const phases = CONSTELLATIONS.map(constellation => {
@@ -79,8 +80,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 	const availablePhases = phases.filter(phase => phase.movies.length > 0).length
 	const completeCount = phases.filter(phase => phase.complete).length
 	const complete = movies.length > 0 && watched === movies.length
-	const suggestedMovies = selectedPhase === 'all' ? movies : movies.filter(movie => movie.phase === selectedPhase)
-	const preview = movies.find(movie => movie.id === previewId) ?? suggestedMovies.find(movie => !watchedIds.has(movie.id)) ?? suggestedMovies[0]
+	const activeStarId = previewId ?? nextMovie?.id
 	function showAll() {
 		setSelectedPhase('all')
 		fitWorld()
@@ -191,7 +191,7 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 											key={movie.id}
 											to={`/movies/${movie.id}`}
 											draggable={false}
-											className={`universe-star${lit ? ' universe-star-lit' : ''}${preview?.id === movie.id ? ' universe-star-selected' : ''}`}
+											className={`universe-star${lit ? ' universe-star-lit' : ''}${activeStarId === movie.id ? ' universe-star-selected' : ''}`}
 											style={{ left: point.x, top: point.y, width: hitSize, height: hitSize, transform: `translate(-50%, -50%) scale(${1 / camera.scale})`, '--star-size': `${point.size}px`, '--star-delay': `${index * -0.7}s` } as CSSProperties}
 											aria-label={`${movie.titleEn}, Phase ${movie.phase}, ${movie.mediaType === 'movie' ? phase.skyName : phase.companion?.name}, ${lit ? '시청 완료, 밝혀진 별' : '미시청, 아직 잠든 별'}`}
 											onMouseEnter={() => {
@@ -244,24 +244,35 @@ export default function UniverseMap({ movies, entries }: { movies: Movie[]; entr
 						<Hand size={12} /> 드래그 이동 · 휠 확대 · 방향키 / + − / Home{isFullscreen && ' · Esc 전체 화면 종료'}
 					</span>
 				</div>
-			</div>
-			{preview && (
-				<div className="universe-preview" data-testid="universe-preview">
-					<div className={`universe-preview-symbol${watchedIds.has(preview.id) ? ' universe-preview-lit' : ''}`}>
-						<Star size={20} fill={watchedIds.has(preview.id) ? 'currentColor' : 'none'} />
-					</div>
-					<div className="universe-preview-film">
-						<span>
-							PHASE {preview.phase} <i /> {mediaLabel(preview)} <i /> {preview.releaseYear} <i /> {watchedIds.has(preview.id) ? '나의 우주에서 빛나는 이야기' : '다음으로 밝혀볼 별'}
+				{nextMovie ? (
+					<Link className="universe-next" data-testid="universe-next" to={`/movies/${nextMovie.id}`}>
+						<MovieCover movie={nextMovie} compact />
+						<div className="universe-next-film">
+							<span className="universe-next-eyebrow">
+								<Orbit size={12} /> 다음으로 밝혀볼 별
+							</span>
+							<strong>{nextMovie.titleEn}</strong>
+							<span className="universe-next-meta">
+								PHASE {nextMovie.phase} · {mediaLabel(nextMovie)} · {nextMovie.releaseYear}
+							</span>
+						</div>
+						<span className="universe-next-action">
+							다음 별 만나기 <ArrowUpRight size={15} />
 						</span>
-						<strong>{preview.titleEn}</strong>
-					</div>
-					<Link className="universe-preview-link" to={`/movies/${preview.id}`}>
-						{watchedIds.has(preview.id) ? '기록 돌아보기' : '이 별 밝히기'}
-						<ArrowUpRight size={15} />
 					</Link>
-				</div>
-			)}
+				) : (
+					<Link className="universe-next universe-next-complete" data-testid="universe-next-complete" to="/ranking">
+						<Sparkles size={30} />
+						<div className="universe-next-film">
+							<strong>모든 별이 빛나는 나만의 밤하늘</strong>
+							<span className="universe-next-meta">가장 좋아했던 이야기를 다시 만나보세요.</span>
+						</div>
+						<span className="universe-next-action">
+							나의 랭킹 돌아보기 <ArrowUpRight size={15} />
+						</span>
+					</Link>
+				)}
+			</div>
 			<div className="universe-collection-heading">
 				<h3>여섯 개의 빛을 모으는 여정</h3>
 				<p aria-live="polite" aria-atomic="true" data-testid="universe-status">
