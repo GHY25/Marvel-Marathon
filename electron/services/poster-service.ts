@@ -34,7 +34,7 @@ export class PosterService {
 	}
 
 	status(): PosterStatus {
-		return { ...this.state, errors: [...this.state.errors], hasCredential: !!this.credential, credentialProblem: this.credentialProblem }
+		return { ...this.state, revision: this.state.revision + this.repository.posterRevision, errors: [...this.state.errors], hasCredential: !!this.credential, credentialProblem: this.credentialProblem }
 	}
 	listMovies(): Movie[] {
 		return this.repository.listMovies().map(movie => ({ ...movie, poster: this.repository.getPoster(movie.id) }))

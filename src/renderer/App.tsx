@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BookOpen, CheckCircle2, ChevronRight, Film, Orbit, LoaderCircle, Settings as SettingsIcon, ShieldCheck, Trophy, BarChart3 } from 'lucide-react'
 import { HashRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useMarathonData } from './hooks/useMarathonData'
@@ -24,6 +24,10 @@ const navigation = [
 function AppShell() {
 	const data = useMarathonData()
 	const location = useLocation()
+	const [navigationHistory, setNavigationHistory] = useState({ path: location.pathname, hasVisitedUniverse: false })
+	if (navigationHistory.path !== location.pathname) {
+		setNavigationHistory({ path: location.pathname, hasVisitedUniverse: navigationHistory.hasVisitedUniverse || navigationHistory.path === '/dashboard' })
+	}
 	const stats = buildStatistics(data.movies, data.entries)
 	const current = [...navigation, { path: '/settings', label: '설정' }].find(item => location.pathname.startsWith(item.path))
 	useEffect(() => {
@@ -84,9 +88,10 @@ function AppShell() {
 					<div className="topbar-actions">
 						<span className="topbar-local">
 							<ShieldCheck size={14} />
-							로컬 우선 · 오프라인 사용
+							{data.syncStatus?.enabled ? data.syncStatus.error ? '기기에 저장 · 연결 대기' : 'PC · 아이폰 연결됨' : '로컬 우선 · 오프라인 사용'}
 						</span>
 						<ThemeToggle />
+						<Link className="mobile-settings" to="/settings" aria-label="설정"><SettingsIcon size={20} /></Link>
 					</div>
 				</header>
 				<main className="main-scroll" id="main-content" tabIndex={-1}>
@@ -104,7 +109,7 @@ function AppShell() {
 							</EmptyState>
 						) : (
 							<Routes>
-								<Route path="/dashboard" element={<Dashboard data={data} />} />
+								<Route path="/dashboard" element={<Dashboard data={data} focusNextOnMobile={navigationHistory.hasVisitedUniverse} />} />
 								<Route path="/movies" element={<Movies data={data} />} />
 								<Route path="/movies/:movieId" element={<MovieDetail key={location.pathname} data={data} />} />
 								<Route path="/diary" element={<Diary data={data} />} />

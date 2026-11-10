@@ -10,7 +10,8 @@ import { useState } from 'react'
 import { MediaFilter } from '../components/MediaFilter'
 import { filterMedia, type MediaFilter as Filter } from '../../shared/media'
 
-export default function Dashboard({ data }: { data: MarathonData }) {
+export default function Dashboard({ data, focusNextOnMobile = false }: { data: MarathonData; focusNextOnMobile?: boolean }) {
+	const [focusNextOnArrival] = useState(focusNextOnMobile)
 	const [type, setType] = useState<Filter>('all')
 	const titles = filterMedia(data.movies, type)
 	const stats = buildStatistics(titles, data.entries)
@@ -29,7 +30,7 @@ export default function Dashboard({ data }: { data: MarathonData }) {
 				}
 			/>
 			<MediaFilter value={type} onChange={setType} titles={data.movies} />
-			<UniverseMap key={type} movies={titles} entries={data.entries} nextMovie={next} />
+			<UniverseMap key={type} movies={titles} entries={data.entries} nextMovie={next} focusNextOnMobile={focusNextOnArrival} />
 			<StatisticsCards stats={stats} />
 			<div className="dashboard-bottom">
 				<section className="panel">

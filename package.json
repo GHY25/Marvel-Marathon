@@ -1,6 +1,6 @@
 {
 	"name": "marvel-marathon",
-	"version": "0.1.0",
+	"version": "0.2.1",
 	"description": "오프라인 MCU 영화 감상 기록과 나만의 평점",
 	"keywords": [
 		"electron",
@@ -13,6 +13,7 @@
 	"scripts": {
 		"dev": "electron-vite dev --watch",
 		"build": "tsc -b && electron-vite build",
+		"build:web": "tsc -b && node scripts/build-web.mjs",
 		"lint": "eslint .",
 		"start": "electron-vite preview",
 		"release": "npm run build && electron-builder --publish never",

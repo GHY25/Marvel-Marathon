@@ -1,0 +1,8 @@
+{
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{ "idx": 0, "version": "6", "when": 1794297600000, "tag": "0000_cloud_records", "breakpoints": true },
+		{ "idx": 1, "version": "6", "when": 1794301200000, "tag": "0001_cloud_posters", "breakpoints": true }
+	]
+}

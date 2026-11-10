@@ -5,6 +5,8 @@ import path from 'node:path'
 import { CATALOG_VERSION, CATALOG } from '../../src/shared/catalog'
 import type { BackupData, Movie, WatchEntry } from '../../src/shared/types'
 import { DomainError, validateBackup, validateCreateEntry, validateEntryId, validateUpdateEntry } from '../../src/shared/validation'
+import { nextSyncVersion, validateSyncRecords, type SyncRecord } from '../../src/shared/cloud'
+import { INITIAL_POSTER_VERSION, validatePosterRecords, validatePosterBytes, type PosterRecord } from '../../src/shared/poster-sync'
 
 const entryColumns = `id, movie_id AS movieId, watch_date AS watchDate, rating_ticks AS ratingTicks,
   review, created_at_utc AS createdAtUtc, updated_at_utc AS updatedAtUtc`
@@ -12,13 +14,14 @@ const entryColumns = `id, movie_id AS movieId, watch_date AS watchDate, rating_t
 /** The only owner of the local SQLite connection. Never imported by the renderer. */
 export class MarathonRepository {
 	private readonly db: DatabaseSync
+	posterRevision = 0
 
 	constructor(filename: string) {
 		if (filename !== ':memory:') fs.mkdirSync(path.dirname(filename), { recursive: true })
 		this.db = new DatabaseSync(filename)
 		try {
 			const version = Number(this.db.prepare('PRAGMA user_version').get()?.user_version)
-			if (version > 3) throw new DomainError('STORAGE_ERROR', '더 새로운 앱에서 만든 데이터입니다. 앱을 업데이트해 주세요.')
+			if (version > 5) throw new DomainError('STORAGE_ERROR', '더 새로운 앱에서 만든 데이터입니다. 앱을 업데이트해 주세요.')
 			this.db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL;')
 			this.transaction(() => {
 				if (version === 0) {
@@ -69,6 +72,14 @@ export class MarathonRepository {
           series_title=excluded.series_title,series_start_year=excluded.series_start_year,
           season_number=excluded.season_number,release_status=excluded.release_status`)
 				for (const movie of CATALOG) seed.run(movie.id, movie.titleEn, movie.titleKo, movie.releaseYear, movie.phase, movie.saga, movie.releaseOrder, movie.mediaType, movie.seriesTitle, movie.seriesStartYear, movie.seasonNumber, movie.releaseStatus)
+				if (version < 4) {
+					this.db.exec('CREATE TABLE sync_records (id TEXT PRIMARY KEY, version TEXT NOT NULL, payload TEXT, dirty INTEGER NOT NULL DEFAULT 1); PRAGMA user_version = 4;')
+					for (const entry of this.listEntries()) this.db.prepare('INSERT INTO sync_records VALUES (?,?,?,1)').run(entry.id, `${String(Date.parse(entry.updatedAtUtc)).padStart(13, '0')}:${entry.id}`, JSON.stringify(entry))
+				}
+				if (version < 5) {
+					this.db.exec('CREATE TABLE poster_sync (movie_id TEXT NOT NULL, source TEXT NOT NULL, version TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(movie_id,source)); PRAGMA user_version = 5;')
+					this.db.prepare('INSERT INTO poster_sync SELECT movie_id,source,?,0,1 FROM poster_assets').run(INITIAL_POSTER_VERSION)
+				}
 			})
 			if (this.db.prepare('PRAGMA quick_check').get()?.quick_check !== 'ok' || this.db.prepare('PRAGMA foreign_key_check').all().length) {
 				throw new DomainError('STORAGE_ERROR', '데이터 무결성 검사에 실패했습니다. 기존 데이터는 초기화하지 않습니다.')
@@ -117,11 +128,46 @@ export class MarathonRepository {
 	}
 
 	savePoster(movieId: string, source: 'custom' | 'tmdb', jpeg: Buffer): void {
-		this.db.prepare('INSERT INTO poster_assets (movie_id, source, jpeg) VALUES (?, ?, ?) ON CONFLICT(movie_id, source) DO UPDATE SET jpeg = excluded.jpeg').run(movieId, source, jpeg)
+		this.transaction(() => {
+			this.db.prepare('INSERT INTO poster_assets (movie_id, source, jpeg) VALUES (?, ?, ?) ON CONFLICT(movie_id, source) DO UPDATE SET jpeg = excluded.jpeg').run(movieId, source, jpeg)
+			this.markPosterChanged(movieId, source, false)
+		})
+		this.posterRevision++
 	}
 
 	removeCustomPoster(movieId: string): void {
-		this.db.prepare("DELETE FROM poster_assets WHERE movie_id = ? AND source = 'custom'").run(movieId)
+		this.transaction(() => {
+			this.db.prepare("DELETE FROM poster_assets WHERE movie_id = ? AND source = 'custom'").run(movieId)
+			this.markPosterChanged(movieId, 'custom', true)
+		})
+		this.posterRevision++
+	}
+
+	private markPosterChanged(movieId: string, source: string, deleted: boolean) {
+		const latest = String(this.db.prepare('SELECT MAX(version) AS version FROM poster_sync').get()?.version ?? '')
+		this.db.prepare('INSERT INTO poster_sync VALUES (?,?,?,?,1) ON CONFLICT(movie_id,source) DO UPDATE SET version=excluded.version,deleted=excluded.deleted,dirty=1').run(movieId, source, nextSyncVersion(latest), Number(deleted))
+	}
+	getPosterRecords(pendingOnly = false): PosterRecord[] {
+		return this.db
+			.prepare(`SELECT movie_id AS movieId,source,version,deleted FROM poster_sync${pendingOnly ? ' WHERE dirty=1' : ''}`)
+			.all()
+			.map(row => ({ movieId: String(row.movieId), source: row.source as PosterRecord['source'], version: String(row.version), deleted: !!row.deleted }))
+	}
+	readPosterRecord(record: PosterRecord): Uint8Array | undefined {
+		return this.db.prepare('SELECT jpeg FROM poster_assets JOIN poster_sync USING(movie_id,source) WHERE movie_id=? AND source=? AND version=?').get(record.movieId, record.source, record.version)?.jpeg as Uint8Array | undefined
+	}
+	mergePosterRecord(raw: PosterRecord, bytes?: Uint8Array): void {
+		const record = validatePosterRecords([raw])[0]
+		if (bytes) validatePosterBytes(bytes)
+		this.transaction(() => {
+			const local = this.db.prepare('SELECT version FROM poster_sync WHERE movie_id=? AND source=?').get(record.movieId, record.source)
+			if (local && String(local.version) > record.version) return
+			if (!record.deleted && !bytes && (!local || local.version !== record.version || !this.readPosterRecord(record))) throw new Error('Missing poster bytes')
+			if (record.deleted) this.db.prepare('DELETE FROM poster_assets WHERE movie_id=? AND source=?').run(record.movieId, record.source)
+			else if (bytes) this.db.prepare('INSERT INTO poster_assets VALUES (?,?,?) ON CONFLICT(movie_id,source) DO UPDATE SET jpeg=excluded.jpeg').run(record.movieId, record.source, bytes)
+			this.db.prepare('INSERT INTO poster_sync VALUES (?,?,?,?,0) ON CONFLICT(movie_id,source) DO UPDATE SET version=excluded.version,deleted=excluded.deleted,dirty=0').run(record.movieId, record.source, record.version, Number(record.deleted))
+			if (!local || local.version !== record.version || bytes) this.posterRevision++
+		})
 	}
 
 	getPosterCredential(): Buffer | undefined {
@@ -148,7 +194,10 @@ export class MarathonRepository {
 		}
 		const timestamp = new Date().toISOString()
 		const entry = { ...input, id: randomUUID(), createdAtUtc: timestamp, updatedAtUtc: timestamp }
-		this.insertEntry(entry)
+		this.transaction(() => {
+			this.insertEntry(entry)
+			this.markChanged(entry.id, entry)
+		})
 		return entry
 	}
 
@@ -156,13 +205,19 @@ export class MarathonRepository {
 		const current = this.findEntry(rawId)
 		const input = validateUpdateEntry(raw)
 		const updated = { ...current, ...input, updatedAtUtc: [new Date().toISOString(), current.createdAtUtc].sort().at(-1)! }
-		this.db.prepare(`UPDATE watch_entries SET watch_date=?,rating_ticks=?,review=?,updated_at_utc=? WHERE id=?`).run(updated.watchDate, updated.ratingTicks, updated.review, updated.updatedAtUtc, updated.id)
+		this.transaction(() => {
+			this.db.prepare(`UPDATE watch_entries SET watch_date=?,rating_ticks=?,review=?,updated_at_utc=? WHERE id=?`).run(updated.watchDate, updated.ratingTicks, updated.review, updated.updatedAtUtc, updated.id)
+			this.markChanged(updated.id, updated)
+		})
 		return updated
 	}
 
 	deleteEntry(rawId: unknown): { deletedId: string } {
 		const entry = this.findEntry(rawId)
-		this.db.prepare('DELETE FROM watch_entries WHERE id = ?').run(entry.id)
+		this.transaction(() => {
+			this.db.prepare('DELETE FROM watch_entries WHERE id = ?').run(entry.id)
+			this.markChanged(entry.id, null)
+		})
 		return { deletedId: entry.id }
 	}
 
@@ -189,10 +244,40 @@ export class MarathonRepository {
 		// Validate the entire payload before deleting anything; a SQL failure rolls everything back.
 		const backup = validateBackup(raw)
 		this.transaction(() => {
+			const restoredIds = new Set(backup.watchEntries.map(entry => entry.id))
+			for (const entry of this.listEntries()) if (!restoredIds.has(entry.id)) this.markChanged(entry.id, null)
 			this.db.exec('DELETE FROM watch_entries')
-			for (const entry of backup.watchEntries) this.insertEntry(entry)
+			for (const entry of backup.watchEntries) {
+				this.insertEntry(entry)
+				this.markChanged(entry.id, entry)
+			}
 		})
 		return backup.watchEntries.length
+	}
+
+	private markChanged(id: string, entry: WatchEntry | null) {
+		const latest = (this.db.prepare('SELECT MAX(version) AS version FROM sync_records').get()?.version as string | null) ?? ''
+		this.db.prepare('INSERT INTO sync_records VALUES (?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET version=excluded.version,payload=excluded.payload,dirty=1').run(id, nextSyncVersion(latest), entry ? JSON.stringify(entry) : null)
+	}
+
+	getSyncRecords(pendingOnly = false): SyncRecord[] {
+		return this.db
+			.prepare(`SELECT id,version,payload FROM sync_records${pendingOnly ? ' WHERE dirty=1' : ''}`)
+			.all()
+			.map(row => ({ id: String(row.id), version: String(row.version), entry: row.payload === null ? null : (JSON.parse(String(row.payload)) as WatchEntry) }))
+	}
+
+	mergeSyncRecords(raw: unknown): void {
+		const records = validateSyncRecords(raw)
+		this.transaction(() => {
+			for (const record of records) {
+				const local = this.db.prepare('SELECT version FROM sync_records WHERE id=?').get(record.id)
+				if (local && String(local.version) > record.version) continue
+				this.db.prepare('DELETE FROM watch_entries WHERE id=?').run(record.id)
+				if (record.entry) this.insertEntry(record.entry)
+				this.db.prepare('INSERT INTO sync_records VALUES (?,?,?,0) ON CONFLICT(id) DO UPDATE SET version=excluded.version,payload=excluded.payload,dirty=0').run(record.id, record.version, record.entry ? JSON.stringify(record.entry) : null)
+			}
+		})
 	}
 
 	close() {

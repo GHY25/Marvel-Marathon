@@ -16,6 +16,7 @@ export interface CameraBounds extends CameraSize {
 
 export const CAMERA_PADDING = 48
 export const DEFAULT_CAMERA_SCALE = 0.25
+export const MOBILE_OVERVIEW_SCALE = 0.11
 export const MAX_CAMERA_SCALE = 1.8
 
 function clamp(value: number, minimum: number, maximum: number) {

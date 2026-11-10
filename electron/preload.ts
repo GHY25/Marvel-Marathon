@@ -4,6 +4,11 @@ import type { MarvelMarathonAPI } from '../src/shared/types'
 
 // --------- Expose some API to the Renderer process ---------
 const api: MarvelMarathonAPI = {
+	sync: {
+		status: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS),
+		run: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_RUN),
+		setEnabled: enabled => ipcRenderer.invoke(IPC_CHANNELS.SYNC_ENABLED, enabled),
+	},
 	openExternal: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url),
 	movies: { list: () => ipcRenderer.invoke(IPC_CHANNELS.MOVIES_LIST) },
 	entries: {

@@ -58,10 +58,15 @@ export interface BackupData {
 export interface AppInfo {
 	version: string
 	catalogVersion: string
-	storage: 'SQLite'
+	storage: 'SQLite' | 'IndexedDB'
 }
 
 export interface MarvelMarathonAPI {
+	sync: {
+		status(): Promise<ApiResult<import('./cloud').SyncStatus>>
+		run(): Promise<ApiResult<import('./cloud').SyncStatus>>
+		setEnabled(enabled: boolean): Promise<ApiResult<import('./cloud').SyncStatus>>
+	}
 	openExternal(url: string): Promise<void>
 	movies: { list(): Promise<ApiResult<Movie[]>> }
 	entries: {

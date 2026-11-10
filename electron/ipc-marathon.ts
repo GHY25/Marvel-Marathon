@@ -9,8 +9,12 @@ import { BackupService } from './services/backup-service'
 import { assertTrustedSender } from './security'
 import { PosterService } from './services/poster-service'
 import { normalizePoster } from './services/poster-image'
+import { CloudSync } from './services/cloud-sync'
 
 export function registerMarathonHandlers(repository: MarathonRepository, getWindow: () => BrowserWindow | null, expectedUrl: string): void {
+	const cloud = new CloudSync(repository, app.getPath('userData'))
+	cloud.start()
+	app.once('before-quit', () => cloud.stop())
 	const requireWindow = () => {
 		const win = getWindow()
 		if (!win || win.isDestroyed()) throw new DomainError('PERMISSION_DENIED', '앱 창을 찾을 수 없습니다.')
@@ -75,6 +79,9 @@ export function registerMarathonHandlers(repository: MarathonRepository, getWind
 		})
 	}
 	handle(IPC_CHANNELS.MOVIES_LIST, () => posters.listMovies())
+	handle(IPC_CHANNELS.SYNC_STATUS, () => cloud.status())
+	handle(IPC_CHANNELS.SYNC_RUN, () => cloud.run())
+	handle(IPC_CHANNELS.SYNC_ENABLED, enabled => cloud.setEnabled(enabled as boolean))
 	handle(IPC_CHANNELS.POSTERS_STATUS, () => posters.status())
 	handle(IPC_CHANNELS.POSTERS_CREDENTIAL_SAVE, value => posters.saveCredential(value))
 	handle(IPC_CHANNELS.POSTERS_CREDENTIAL_CLEAR, () => posters.clearCredential())

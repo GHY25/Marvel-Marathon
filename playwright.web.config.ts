@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test'
+export default defineConfig({ testDir: './tests/web', workers: 1, timeout: 60000, expect: { timeout: 10000 }, outputDir: 'test-results/web', use: { browserName: 'chromium', channel: 'chrome', headless: true, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 }, webServer: { command: 'node scripts/preview-web.mjs', url: 'http://127.0.0.1:4173', reuseExistingServer: false }, reporter: [['list']] })

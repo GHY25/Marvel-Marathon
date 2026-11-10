@@ -10,15 +10,15 @@ import { PhaseProgress, StatisticsCards } from '../components/StatisticsCards'
 import { ThemePicker } from '../components/ThemeControls'
 import { PosterSettings } from '../components/PosterControls'
 import { MediaFilter } from '../components/MediaFilter'
+import { CloudSettings } from '../components/CloudSettings'
 import { filterMedia, mediaLabel, type MediaFilter as Filter } from '../../shared/media'
 
 export function Diary({ data }: { data: MarathonData }) {
 	const [query, setQuery] = useState('')
-	const [filter, setFilter] = useState('all')
 	const [type, setType] = useState<Filter>('all')
 	const entries = sortEntries(data.entries).filter(entry => {
 		const movie = data.movies.find(item => item.id === entry.movieId)!
-		return (type === 'all' || movie.mediaType === type) && `${movie.titleEn} ${movie.titleKo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()) && (filter === 'all' || (filter === 'rated' ? entry.ratingTicks !== null : entry.ratingTicks === null))
+		return (type === 'all' || movie.mediaType === type) && `${movie.titleEn} ${movie.titleKo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase())
 	})
 	return (
 		<>
@@ -29,11 +29,6 @@ export function Diary({ data }: { data: MarathonData }) {
 					<Search size={18} />
 					<input aria-label="감상 일기 검색" placeholder="작품 제목으로 기록 찾기" value={query} onChange={event => setQuery(event.target.value)} />
 				</label>
-				<select aria-label="평점 필터" value={filter} onChange={event => setFilter(event.target.value)}>
-					<option value="all">모든 기록</option>
-					<option value="rated">별점 있음</option>
-					<option value="unrated">별점 없음</option>
-				</select>
 			</div>
 			{entries.length ? (
 				<div className="diary-list">
@@ -70,7 +65,7 @@ export function Diary({ data }: { data: MarathonData }) {
 				</div>
 			) : (
 				<div className="panel">
-					<EmptyState title={data.entries.length ? '조건에 맞는 감상 기록이 없어요.' : '아직 감상 기록이 없습니다.'} description={data.entries.length ? '검색어나 별점 필터를 변경해 보세요.' : '작품 목록에서 첫 기록을 남겨보세요.'}>
+					<EmptyState title={data.entries.length ? '조건에 맞는 감상 기록이 없어요.' : '아직 감상 기록이 없습니다.'} description={data.entries.length ? '검색어나 작품 종류를 변경해 보세요.' : '작품 목록에서 첫 기록을 남겨보세요.'}>
 						<Link className="button secondary" to="/movies">
 							작품 목록으로
 							<ArrowRight size={15} />
@@ -213,6 +208,7 @@ export function Settings({ data }: { data: MarathonData }) {
 		<>
 			<PageHeading eyebrow="MADE FOR YOUR OWN JOURNEY" title="설정" description="당신의 감상은 당신의 것. 소중한 기록을 안전하게 관리하세요." />
 			<div className="settings-stack">
+				<CloudSettings data={data} />
 				<ThemePicker />
 				<PosterSettings data={data} />
 				<section className="panel storage-card">
@@ -220,11 +216,11 @@ export function Settings({ data }: { data: MarathonData }) {
 						<HardDrive size={24} />
 					</span>
 					<div>
-						<h2>이 기기에 안전하게 보관됩니다</h2>
+						<h2>기기에도 안전하게 보관됩니다</h2>
 						<p>
 							모든 감상 기록은 로컬 저장소에 저장돼요.
 							<br />
-							인터넷 연결이나 계정 없이 언제든 기록할 수 있어요.
+							동기화를 켜면 연결된 기기에서도 이어서 볼 수 있어요.
 						</p>
 					</div>
 					<span className="local-badge">

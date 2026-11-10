@@ -34,15 +34,15 @@ export function Movies({ data }: { data: MarathonData }) {
 			<PageHeading eyebrow="THE MARATHON COLLECTION" title="영화와 시리즈, 하나의 우주" description="영화 한 편, 시리즈 한 시즌, 스페셜 한 편이 나의 우주에서 하나의 별이 됩니다." />
 			<MediaFilter value={type} onChange={value => filter('type', value)} titles={data.movies} />
 			<p className="footnote">영화는 개봉순, 디즈니+ 작품은 시즌 공개순으로 정렬됩니다. 시리즈의 각 시즌은 별도로 기록해요.</p>
-			<div className="collection-tools">
+			<div className="collection-tools movie-tools">
 				<label className="search-field">
 					<Search size={18} />
-					<input aria-label="작품 검색" placeholder="영화·시리즈 제목으로 검색" value={query} onChange={event => filter('q', event.target.value)} />
+					<input aria-label="작품 검색" placeholder="제목 검색" value={query} onChange={event => filter('q', event.target.value)} />
 				</label>
 				<div className="select-field">
 					<SlidersHorizontal size={15} />
 					<select aria-label="감상 상태" value={status} onChange={event => filter('status', event.target.value)}>
-						<option value="all">모든 감상 상태</option>
+						<option value="all">전체 상태</option>
 						<option value="watched">시청 완료</option>
 						<option value="unwatched">미시청</option>
 					</select>

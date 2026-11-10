@@ -12,8 +12,8 @@ function phaseStyle(color: string): CSSProperties {
 	return { '--universe-phase': color } as CSSProperties
 }
 
-export default function UniverseMap({ movies, entries, nextMovie }: { movies: Movie[]; entries: WatchEntry[]; nextMovie: Movie | null }) {
-	const [selectedPhase, setSelectedPhase] = useState<Phase | 'all'>('all')
+export default function UniverseMap({ movies, entries, nextMovie, focusNextOnMobile = false }: { movies: Movie[]; entries: WatchEntry[]; nextMovie: Movie | null; focusNextOnMobile?: boolean }) {
+	const [selectedPhase, setSelectedPhase] = useState<Phase | 'all'>(() => focusNextOnMobile && window.matchMedia('(max-width: 600px)').matches ? nextMovie?.phase ?? 'all' : 'all')
 	const [previewId, setPreviewId] = useState<string | null>(null)
 	const atlasRef = useRef<HTMLDivElement>(null)
 	const fullscreenButtonRef = useRef<HTMLButtonElement>(null)
@@ -69,7 +69,6 @@ export default function UniverseMap({ movies, entries, nextMovie }: { movies: Mo
 			if (atlas.isConnected) setFullscreenPending(false)
 		}
 	}
-	const { viewportRef, camera, size, isDragging, minScale, maxScale, zoomBy, fitWorld, focusBounds, revealPoint, handlers } = useUniverseCamera({ worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, initialCenter: OVERVIEW_CENTER })
 	const watchedIds = new Set(entries.map(entry => entry.movieId))
 	const watched = movies.filter(movie => watchedIds.has(movie.id)).length
 	const phases = CONSTELLATIONS.map(constellation => {
@@ -77,6 +76,9 @@ export default function UniverseMap({ movies, entries, nextMovie }: { movies: Mo
 		const count = phaseMovies.filter(movie => watchedIds.has(movie.id)).length
 		return { ...constellation, ...layoutConstellation(constellation, phaseMovies), movies: phaseMovies, watched: count, complete: phaseMovies.length > 0 && count === phaseMovies.length }
 	})
+	const nextPhase = phases.find(phase => phase.phase === nextMovie?.phase)
+	const mobileInitialBounds = focusNextOnMobile && nextPhase ? { x: nextPhase.x - 28, y: nextPhase.y - 70, width: nextPhase.width + 56, height: nextPhase.height + 105 } : undefined
+	const { viewportRef, camera, size, isDragging, minScale, maxScale, zoomBy, fitWorld, focusBounds, revealPoint, handlers } = useUniverseCamera({ worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, initialCenter: OVERVIEW_CENTER, mobileInitialBounds })
 	const availablePhases = phases.filter(phase => phase.movies.length > 0).length
 	const completeCount = phases.filter(phase => phase.complete).length
 	const complete = movies.length > 0 && watched === movies.length
@@ -95,6 +97,7 @@ export default function UniverseMap({ movies, entries, nextMovie }: { movies: Mo
 	const right = Math.min(WORLD_WIDTH, (size.width - camera.x) / camera.scale)
 	const bottom = Math.min(WORLD_HEIGHT, (size.height - camera.y) / camera.scale)
 	const hitSize = Math.max(24, Math.min(44, camera.scale * 100))
+	const labelScale = size.width <= 600 ? Math.max(1, 1 / camera.scale) : Math.max(1, Math.min(4, 1 / camera.scale))
 	return (
 		<section className={`universe-map${complete ? ' universe-complete' : ''}`} data-testid="universe-map" aria-labelledby="universe-title">
 			<div className="universe-heading">
@@ -154,7 +157,7 @@ export default function UniverseMap({ movies, entries, nextMovie }: { movies: Mo
 						{phases.map(phase => (
 							<div key={phase.phase} className={`universe-sector${phase.complete ? ' universe-sector-complete' : ''}`} data-testid="constellation" data-phase={phase.phase} style={{ ...phaseStyle(phase.color), left: phase.x, top: phase.y, width: phase.width, height: phase.height }}>
 								{phase.filmLabel && (
-									<div className="universe-sector-label" style={{ left: phase.filmLabel.x, top: phase.filmLabel.y - 44, transform: `scale(${Math.max(1, Math.min(4, 1 / camera.scale))})` }}>
+									<div className="universe-sector-label" style={{ left: phase.filmLabel.x, top: phase.filmLabel.y - 44, transform: `scale(${labelScale})` }}>
 										<span>
 											<small>PHASE 0{phase.phase}</small>
 											<strong>{phase.skyName}</strong>
@@ -167,7 +170,7 @@ export default function UniverseMap({ movies, entries, nextMovie }: { movies: Mo
 									</div>
 								)}
 								{phase.companion && (
-									<div className="universe-companion-label" style={{ left: phase.companion.label.x, top: phase.companion.label.y, transform: `scale(${Math.max(1, Math.min(4, 1 / camera.scale))})` }}>
+									<div className="universe-companion-label" style={{ left: phase.companion.label.x, top: phase.companion.label.y, transform: `scale(${labelScale})` }}>
 										<span>
 											PHASE 0{phase.phase} · {[phase.movies.some(movie => movie.mediaType === 'series') && '시리즈', phase.movies.some(movie => movie.mediaType === 'special') && '스페셜'].filter(Boolean).join(' · ')}
 										</span>

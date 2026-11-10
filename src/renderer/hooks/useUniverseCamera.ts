@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { cameraScaleLimits, constrainCamera, DEFAULT_CAMERA_SCALE, fitWorldCamera, focusCamera, resizeCamera, zoomCamera, type Camera, type CameraBounds, type CameraSize } from '../../shared/universe-camera'
+import { cameraScaleLimits, constrainCamera, DEFAULT_CAMERA_SCALE, MOBILE_OVERVIEW_SCALE, fitWorldCamera, focusCamera, resizeCamera, zoomCamera, type Camera, type CameraBounds, type CameraSize } from '../../shared/universe-camera'
 
 interface Drag {
 	id: number
@@ -14,7 +14,7 @@ interface Drag {
 	moved: boolean
 }
 
-export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { worldWidth: number; worldHeight: number; initialCenter: { x: number; y: number } }) {
+export function useUniverseCamera({ worldWidth, worldHeight, initialCenter, mobileInitialBounds }: { worldWidth: number; worldHeight: number; initialCenter: { x: number; y: number }; mobileInitialBounds?: CameraBounds }) {
 	const viewportRef = useRef<HTMLDivElement>(null)
 	const cameraRef = useRef<Camera>({ x: 0, y: 0, scale: 1 })
 	const sizeRef = useRef<CameraSize>({ width: 0, height: 0 })
@@ -25,6 +25,9 @@ export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { 
 	const dragRef = useRef<Drag | null>(null)
 	const suppressClickUntil = useRef(0)
 	const reduceMotionRef = useRef(false)
+	const pinchRef = useRef<{ distance: number; x: number; y: number } | null>(null)
+	// Only the arrival camera uses this; later data refreshes must not steal a gesture.
+	const initialBoundsRef = useRef(mobileInitialBounds)
 
 	const stopAnimation = useCallback(() => {
 		if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
@@ -69,8 +72,10 @@ export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { 
 		[moveTo, worldWidth, worldHeight]
 	)
 
-	const fitWorld = useCallback(() => moveTo(fitWorldCamera(sizeRef.current, { width: worldWidth, height: worldHeight })), [moveTo, worldWidth, worldHeight])
-	const focusBounds = useCallback((bounds: CameraBounds) => moveTo(focusCamera(bounds, sizeRef.current, { width: worldWidth, height: worldHeight })), [moveTo, worldWidth, worldHeight])
+	// Fixed-size labels extend above the stars; leave a little more room at the top.
+	const overview = useCallback((viewport: CameraSize) => (window.matchMedia('(max-width: 600px)').matches ? { x: viewport.width / 2 - initialCenter.x * MOBILE_OVERVIEW_SCALE, y: viewport.height / 2 - initialCenter.y * MOBILE_OVERVIEW_SCALE + 12, scale: MOBILE_OVERVIEW_SCALE } : fitWorldCamera(viewport, { width: worldWidth, height: worldHeight })), [worldWidth, worldHeight, initialCenter.x, initialCenter.y])
+	const fitWorld = useCallback(() => moveTo(overview(sizeRef.current)), [moveTo, overview])
+	const focusBounds = useCallback((bounds: CameraBounds) => moveTo(focusCamera(bounds, sizeRef.current, { width: worldWidth, height: worldHeight }, window.matchMedia('(max-width: 600px)').matches ? 28 : 72)), [moveTo, worldWidth, worldHeight])
 	const revealPoint = useCallback(
 		(x: number, y: number) => {
 			stopAnimation()
@@ -110,13 +115,36 @@ export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { 
 			sizeRef.current = next
 			setSize(next)
 			if (!previous.width || !previous.height) {
-				// Every visit starts at 25%, centered on the sky.
-				applyCamera({ x: next.width / 2 - initialCenter.x * DEFAULT_CAMERA_SCALE, y: next.height / 2 - initialCenter.y * DEFAULT_CAMERA_SCALE, scale: DEFAULT_CAMERA_SCALE })
+				applyCamera(window.matchMedia('(max-width: 600px)').matches ? (initialBoundsRef.current ? focusCamera(initialBoundsRef.current, next, world, 28) : overview(next)) : { x: next.width / 2 - initialCenter.x * DEFAULT_CAMERA_SCALE, y: next.height / 2 - initialCenter.y * DEFAULT_CAMERA_SCALE, scale: DEFAULT_CAMERA_SCALE })
 			} else applyCamera(resizeCamera(cameraRef.current, previous, next, world))
 		}
 		const observer = new ResizeObserver(measure)
 		observer.observe(element)
 		measure()
+		const pinch = (event: TouchEvent) => {
+			if (event.touches.length !== 2) {
+				pinchRef.current = null
+				return
+			}
+			event.preventDefault()
+			stopAnimation()
+			dragRef.current = null
+			setDragging(false)
+			suppressClickUntil.current = performance.now() + 500
+			const rect = element.getBoundingClientRect()
+			const [a, b] = [event.touches[0], event.touches[1]]
+			const current = { distance: Math.max(1, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)), x: (a.clientX + b.clientX) / 2 - rect.left, y: (a.clientY + b.clientY) / 2 - rect.top }
+			const previous = pinchRef.current
+			if (previous) {
+				const zoomed = zoomCamera(cameraRef.current, current.distance / previous.distance, previous, sizeRef.current, world)
+				applyCamera({ ...zoomed, x: zoomed.x + current.x - previous.x, y: zoomed.y + current.y - previous.y })
+			}
+			pinchRef.current = current
+		}
+		element.addEventListener('touchstart', pinch, { passive: false })
+		element.addEventListener('touchmove', pinch, { passive: false })
+		element.addEventListener('touchend', pinch)
+		element.addEventListener('touchcancel', pinch)
 
 		const wheel = (event: WheelEvent) => {
 			if (event.target instanceof Element && event.target.closest('[data-camera-control]')) return
@@ -162,6 +190,7 @@ export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { 
 			const drag = dragRef.current
 			if (!drag || event.pointerId !== drag.id) return
 			dragRef.current = null
+			pinchRef.current = null
 			setDragging(false)
 			if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId)
 			if (!drag.moved) return
@@ -198,6 +227,10 @@ export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { 
 		window.addEventListener('blur', blur)
 		return () => {
 			observer.disconnect()
+			element.removeEventListener('touchstart', pinch)
+			element.removeEventListener('touchmove', pinch)
+			element.removeEventListener('touchend', pinch)
+			element.removeEventListener('touchcancel', pinch)
 			media.removeEventListener('change', motionChanged)
 			element.removeEventListener('wheel', wheel)
 			element.removeEventListener('dragstart', preventNativeDrag)
@@ -210,10 +243,10 @@ export function useUniverseCamera({ worldWidth, worldHeight, initialCenter }: { 
 			dragRef.current = null
 			stopAnimation()
 		}
-	}, [applyCamera, stopAnimation, worldWidth, worldHeight, initialCenter.x, initialCenter.y])
+	}, [applyCamera, stopAnimation, worldWidth, worldHeight, initialCenter.x, initialCenter.y, overview])
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (event.button !== 0 || !event.isPrimary || dragRef.current || (event.target instanceof Element && event.target.closest('[data-camera-control]'))) return
+		if (event.button !== 0 || !event.isPrimary || dragRef.current || pinchRef.current || (event.target instanceof Element && event.target.closest('[data-camera-control]'))) return
 		stopAnimation()
 		suppressClickUntil.current = 0
 		dragRef.current = { id: event.pointerId, startX: event.clientX, startY: event.clientY, lastX: event.clientX, lastY: event.clientY, lastTime: performance.now(), velocityX: 0, velocityY: 0, startCamera: cameraRef.current, moved: false }

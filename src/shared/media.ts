@@ -1,7 +1,7 @@
 import type { MediaType, Movie } from './types'
 
 export type MediaFilter = MediaType | 'all'
-export const MEDIA_LABELS: Record<MediaFilter, string> = { all: '전체', movie: '영화', series: '드라마·시리즈', special: '스페셜' }
+export const MEDIA_LABELS: Record<MediaFilter, string> = { all: '전체', movie: '영화', series: '시리즈', special: '스페셜' }
 export function mediaLabel(title: Movie): string {
 	return title.mediaType === 'series' ? `시리즈 · 시즌 ${title.seasonNumber}` : MEDIA_LABELS[title.mediaType]
 }

@@ -105,7 +105,7 @@ test('every sky visit starts at 25 percent and the overview still fits when resi
 			await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setSize(size.width, size.height), size)
 			await expectOverview()
 		}
-		await page.getByRole('button', { name: '드라마·시리즈 23', exact: true }).click()
+		await page.getByRole('button', { name: '시리즈 23', exact: true }).click()
 		await expectDefaultZoom(23)
 		await expect(nextStar).toHaveAttribute('href', '#/movies/mcu-tv-wandavision-s01')
 		await page.getByRole('button', { name: '전체 우주 보기', exact: true }).click()

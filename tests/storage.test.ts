@@ -25,11 +25,24 @@ afterEach(() => {
 })
 
 describe('durable SQLite repository', () => {
+	it('adds poster synchronization to v4 while preserving both stored poster sources', () => {
+		const automatic = Buffer.from([255, 216, 255, 1, 255, 217])
+		const custom = Buffer.from([255, 216, 255, 2, 255, 217])
+		repository.savePoster('mcu-001', 'tmdb', automatic)
+		repository.savePoster('mcu-001', 'custom', custom)
+		repository.close()
+		const old = new DatabaseSync(filename)
+		old.exec('DROP TABLE poster_sync; PRAGMA user_version = 4;')
+		old.close()
+		repository = new MarathonRepository(filename)
+		expect(repository.getPosterRecords(true)).toHaveLength(2)
+		expect(repository.getPoster('mcu-001')).toMatchObject({ source: 'custom', hasAutomatic: true, dataUrl: `data:image/jpeg;base64,${custom.toString('base64')}` })
+	})
 	it('migrates the previous v1 database without changing watch history', () => {
 		const entry = repository.createEntry(input)
 		repository.close()
 		const old = new DatabaseSync(filename)
-		old.exec('DROP TABLE poster_assets; DROP TABLE private_settings; PRAGMA user_version = 1;')
+		old.exec('DROP TABLE poster_assets; DROP TABLE private_settings; DROP TABLE sync_records; DROP TABLE poster_sync; PRAGMA user_version = 1;')
 		for (const column of ['media_type', 'series_title', 'series_start_year', 'season_number', 'release_status']) old.exec(`ALTER TABLE movies DROP COLUMN ${column}`)
 		old.close()
 		repository = new MarathonRepository(filename)
@@ -48,7 +61,7 @@ describe('durable SQLite repository', () => {
 		expect(repository.listEntries()).toEqual(expect.arrayContaining([first, second]))
 		expect(first.review).toBe('첫 정주행')
 		const inspect = new DatabaseSync(filename)
-		expect(inspect.prepare('PRAGMA user_version').get()?.user_version).toBe(3)
+		expect(inspect.prepare('PRAGMA user_version').get()?.user_version).toBe(5)
 		expect(inspect.prepare('PRAGMA journal_mode').get()?.journal_mode).toBe('wal')
 		inspect.close()
 	})
@@ -106,7 +119,7 @@ describe('durable SQLite repository', () => {
 	it('refuses a newer schema without resetting user data', () => {
 		const entry = repository.createEntry(input)
 		const external = new DatabaseSync(filename)
-		external.exec('PRAGMA user_version = 4')
+		external.exec('PRAGMA user_version = 6')
 		external.close()
 		expect(() => new MarathonRepository(filename)).toThrow('더 새로운 앱')
 		expect(repository.listEntries()).toEqual([entry])

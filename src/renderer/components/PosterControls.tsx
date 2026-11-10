@@ -5,6 +5,7 @@ import type { ApiResult, Movie } from '../../shared/types'
 import type { MarathonData } from '../hooks/useMarathonData'
 import { SectionTitle } from './Common'
 import './PosterControls.css'
+import { isWeb } from '../platform'
 
 function checked<T>(result: ApiResult<T>): T {
 	if (!result.ok) throw new Error(result.error.message)
@@ -45,6 +46,13 @@ export function PosterSettings({ data }: { data: MarathonData }) {
 			setError('브라우저를 열지 못했어요. TMDB 홈페이지의 계정 설정 → API로 이동해 주세요.')
 		}
 	}
+	if (isWeb)
+		return (
+			<section className="panel poster-settings">
+				<SectionTitle title="나만의 작품 포스터" subtitle="작품 상세에서 ‘내 이미지로 변경’을 눌러 사진을 선택하세요." />
+				<p className="footnote">PC에서 가져온 포스터와 직접 선택한 이미지를 함께 연동해요. TMDB 자동 가져오기는 PC 앱에서 사용할 수 있어요.</p>
+			</section>
+		)
 	return (
 		<section className="panel poster-settings">
 			<SectionTitle title="작품 포스터" subtitle={`${data.movies.length}개 작품의 실제 포스터를 가져와 나만의 컬렉션을 완성하세요.`} />
@@ -143,6 +151,7 @@ export function PosterPicker({ movie, data }: { movie: Movie; data: MarathonData
 			if (custom) checked(await window.electronAPI.posters.chooseCustom(movie.id))
 			else checked(await window.electronAPI.posters.useAutomatic(movie.id))
 			await data.refreshPosters()
+			void data.syncNow().catch(() => {})
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : '포스터를 변경하지 못했어요.')
 		} finally {
@@ -164,7 +173,7 @@ export function PosterPicker({ movie, data }: { movie: Movie; data: MarathonData
 				)}
 			</div>
 			<p className="footnote">{movie.poster?.source === 'custom' ? '내가 선택한 이미지' : movie.poster?.source === 'tmdb' ? 'TMDB 포스터 · 기기에 저장됨' : '나만의 우주 커버'} · JPG / PNG · 최대 10MB</p>
-			{!movie.poster && (
+			{!movie.poster && !isWeb && (
 				<Link className="text-link" to="/settings">
 					설정에서 실제 포스터 자동 가져오기 <ExternalLink size={14} />
 				</Link>
